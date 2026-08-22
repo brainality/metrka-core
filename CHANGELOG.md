@@ -6,6 +6,9 @@ The project follows [Semantic Versioning](https://semver.org/). Internal
 modules remain implementation details unless they are listed in
 `PUBLIC_API.md`.
 
+
+## [Unreleased]
+
 ## [1.0.0] - 2026-08-22
 
 First public release.
