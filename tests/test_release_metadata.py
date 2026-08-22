@@ -24,9 +24,13 @@ def _document() -> dict[str, object]:
     return document
 
 
-def test_release_version_is_documented_in_changelog() -> None:
+def test_project_version_is_documented_in_changelog() -> None:
     version = _project_version(REPOSITORY_ROOT)
     changelog = (REPOSITORY_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+
+    if ".dev" in version:
+        assert "## [Unreleased]" in changelog
+        return
 
     assert f"## [{version}] - " in changelog
 
