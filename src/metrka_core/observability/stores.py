@@ -1,0 +1,35 @@
+"""Persistence interfaces for pipeline observability."""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any, Protocol
+
+
+class PipelineRunStore(Protocol):
+    """Persist the lifecycle of one pipeline run."""
+
+    def start_pipeline_run(
+        self,
+        *,
+        pipeline_run_id: str,
+        workspace_name: str,
+        config_name: str,
+        code_provenance: dict[str, object],
+        started_at: datetime,
+    ) -> None: ...
+
+    def finish_pipeline_run(
+        self,
+        *,
+        pipeline_run_id: str,
+        status: str,
+        finished_at: datetime,
+        error: dict[str, object] | None = None,
+    ) -> None: ...
+
+
+class ExecutionLogStore(Protocol):
+    """Persist structured pipeline execution events."""
+
+    def insert_execution_log(self, record: dict[str, Any]) -> None: ...
