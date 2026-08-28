@@ -30,7 +30,7 @@ def pipeline_run(
         pipeline_run_id=runtime.pipeline_run_id,
         workspace_name=workspace_name,
         config_name=config_name,
-        code_provenance=runtime.code_provenance.to_dict(),
+        code_provenance=runtime.code_provenance,
         started_at=clock.now_utc(),
     )
 

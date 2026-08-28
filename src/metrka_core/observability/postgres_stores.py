@@ -7,6 +7,7 @@ from typing import Any
 
 from metrka_core.metadata.postgres import PostgresSession, to_jsonb
 from metrka_core.observability.execution_step_meta import ExecutionStepMeta
+from metrka_core.pipeline.provenance import CodeProvenance
 
 
 class PostgresPipelineRunStore:
@@ -21,7 +22,7 @@ class PostgresPipelineRunStore:
         pipeline_run_id: str,
         workspace_name: str,
         config_name: str,
-        code_provenance: dict[str, object],
+        code_provenance: CodeProvenance,
         started_at: datetime,
     ) -> None:
         if started_at.utcoffset() is None:
@@ -45,7 +46,7 @@ class PostgresPipelineRunStore:
                     workspace_name,
                     config_name,
                     started_at,
-                    to_jsonb(code_provenance),
+                    to_jsonb(code_provenance.to_dict()),
                 ),
             )
 

@@ -43,7 +43,7 @@ class RecordingPipelineRunStore:
         pipeline_run_id: str,
         workspace_name: str,
         config_name: str,
-        code_provenance: dict[str, object],
+        code_provenance: CodeProvenance,
         started_at: datetime,
     ) -> None:
         self.started.append(
@@ -112,11 +112,14 @@ def _pipeline_context() -> PipelineContext:
     return cast(PipelineContext, object())
 
 
-def _json_default(value: object) -> str:
+def _json_default(value: object) -> object:
     if isinstance(value, datetime):
         return value.isoformat()
 
-    raise TypeError
+    if isinstance(value, CodeProvenance):
+        return value.to_dict()
+
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
 
 
 def _canonical_receipt(store: RecordingPipelineRunStore) -> bytes:
@@ -174,21 +177,7 @@ def test_successful_pipeline_lifecycle_is_deterministic() -> None:
     first = _record_successful_run()
     second = _record_successful_run()
 
-    expected_provenance = {
-        "metrka_core": {
-            "repository": "test",
-            "commit_sha": "a" * 40,
-            "branch": "main",
-            "package_version": "0.1.0",
-        },
-        "dataset_repository": {
-            "repository": "test",
-            "commit_sha": "a" * 40,
-            "branch": "main",
-            "package_version": "0.1.0",
-        },
-        "dirty": False,
-    }
+    expected_provenance = _runtime().code_provenance
 
     expected_started = [
         {
@@ -208,6 +197,8 @@ def test_successful_pipeline_lifecycle_is_deterministic() -> None:
             "error": None,
         }
     ]
+
+    assert isinstance(first.started[0]["code_provenance"], CodeProvenance)
 
     assert first.started == expected_started
     assert first.finished == expected_finished
