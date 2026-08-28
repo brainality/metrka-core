@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Protocol
 
+from metrka_core.pipeline.provenance import CodeProvenance
+
 
 class PipelineRunStore(Protocol):
     """Persist the lifecycle of one pipeline run."""
@@ -15,7 +17,7 @@ class PipelineRunStore(Protocol):
         pipeline_run_id: str,
         workspace_name: str,
         config_name: str,
-        code_provenance: dict[str, object],
+        code_provenance: CodeProvenance,
         started_at: datetime,
     ) -> None: ...
 
