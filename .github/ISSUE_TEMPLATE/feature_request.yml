@@ -17,7 +17,7 @@ body:
     attributes:
       label: Example
       description: Show how the API, CLI command, contract, or configuration could look.
-      render: text
+
 
   - type: dropdown
     id: proposed_scope
@@ -38,7 +38,7 @@ body:
     attributes:
       label: Scope
       description: Define the steps needed to implement it.
-      render: text
+
 
   - type: textarea
     id: acceptance
