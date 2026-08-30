@@ -74,7 +74,7 @@ def test_refresh_updates_current_and_history_projections(tmp_path: Path) -> None
         state = projection_states.get(dataset_id=DATASET_ID, projection_kind=projection_kind)
         assert state is not None
         assert state.status is PublicationProjectionStatus.SYNCHRONIZED
-    assert [record["event_type"] for record in execution_logs.records] == [
+    assert [event.event_type for event in execution_logs.records] == [
         "step_started",
         "step_finished",
         "step_started",

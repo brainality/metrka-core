@@ -2,20 +2,22 @@
 Helpers for writing execution receipts.
 
 Used to log when a step starts, when it finishes,
-how long it took and how it ended.
+how long it took and whether it succeeded or chose a more dramatic ending.
 """
 
 from __future__ import annotations
 
-# ================================================================================
-# Imports
-# ================================================================================
 from dataclasses import dataclass, field
-from datetime import UTC
-from typing import Any, Literal
 
+from metrka_core.observability.execution_events import (
+    ExecutionCounts,
+    ExecutionError,
+    Layer,
+    StepFinishedEvent,
+    StepStartedEvent,
+    StepStatus,
+)
 from metrka_core.observability.execution_ids import ExecutionIdGenerator, UuidExecutionIdGenerator
-from metrka_core.observability.execution_schema import StepStatus, validate_execution_event
 from metrka_core.observability.execution_step_meta import ExecutionStepMeta
 from metrka_core.observability.stores import ExecutionLogStore
 from metrka_core.pipeline.runtime_services import (
@@ -24,13 +26,6 @@ from metrka_core.pipeline.runtime_services import (
     SystemClock,
     SystemMonotonicClock,
 )
-
-# ================================================================================
-# Types
-# ================================================================================
-Layer = Literal["none", "landing", "bronze", "silver"]
-
-VALID_LAYERS = frozenset({"none", "landing", "bronze", "silver"})
 
 
 # ================================================================================
@@ -103,9 +98,6 @@ class ExecutionLog:
 
         object.__setattr__(self, "step", self.step.strip())
 
-        if self.layer not in VALID_LAYERS:
-            raise ValueError(f"layer must be one of: {sorted(VALID_LAYERS)}")
-
         if self.run_id is None:
             prefix = self.layer if self.layer != "none" else "run"
 
@@ -120,62 +112,56 @@ class ExecutionLog:
         return ExecutionTimer(clock=self.monotonic_clock)
 
     # ---------------------------------------------------------------------------------------------
-    # Core emitter
-    # ---------------------------------------------------------------------------------------------
-    def base_record(
-        self, *, event_type: str, meta: ExecutionStepMeta | None = None
-    ) -> dict[str, Any]:
-        """Build the base execution record."""
-
-        occurred_at = self.clock.now_utc()
-
-        if occurred_at.tzinfo is None or occurred_at.utcoffset() != UTC.utcoffset(occurred_at):
-            raise ValueError("execution event timestamp must be in UTC")
-
-        rec: dict[str, Any] = {
-            "ts": occurred_at.isoformat(timespec="microseconds"),
-            "schema_version": self.schema_version,
-            "dataset": self.dataset,
-            "layer": self.layer,
-            "step": self.step,
-            "run_id": self.run_id,
-            "step_id": self.step_id,
-            "event_type": event_type,
-        }
-        if meta is not None:
-            rec["meta"] = meta.to_dict()
-        return rec
-
-    def emit(self, record: dict[str, Any]) -> None:
-        """Insert into the metadata database."""
-        validate_execution_event(record)
-        self.store.insert_execution_log(record)
-
-    # ---------------------------------------------------------------------------------------------
     # Step events
     # ---------------------------------------------------------------------------------------------
-    def step_started(self, *, meta: ExecutionStepMeta | None = None) -> dict[str, Any]:
+    def step_started(self, *, meta: ExecutionStepMeta | None = None) -> StepStartedEvent:
         """Write step_started execution receipt."""
-        rec = self.base_record(event_type="step_started", meta=meta)
-        self.emit(rec)
-        return rec
+
+        if self.run_id is None or self.step_id is None:
+            raise RuntimeError("Execution log identifiers were not initialized")
+
+        event = StepStartedEvent(
+            ts=self.clock.now_utc(),
+            schema_version=self.schema_version,
+            dataset=self.dataset,
+            layer=self.layer,
+            step=self.step,
+            run_id=self.run_id,
+            step_id=self.step_id,
+            meta=meta,
+        )
+
+        self.store.insert_execution_log(event)
+        return event
 
     def step_finished(
         self,
         *,
         status: StepStatus,
         duration_ms: int,
-        counts: dict[str, int],
-        error: dict[str, Any] | None = None,
+        counts: ExecutionCounts,
+        error: ExecutionError | None = None,
         meta: ExecutionStepMeta | None = None,
-    ) -> dict[str, Any]:
+    ) -> StepFinishedEvent:
         """Write step_finished execution receipt."""
-        rec = self.base_record(event_type="step_finished", meta=meta)
-        rec["status"] = status
 
-        rec["duration_ms"] = duration_ms
-        rec["counts"] = counts
-        if error is not None:
-            rec["error"] = error
-        self.emit(rec)
-        return rec
+        if self.run_id is None or self.step_id is None:
+            raise RuntimeError("Execution log identifiers were not initialized")
+
+        event = StepFinishedEvent(
+            ts=self.clock.now_utc(),
+            schema_version=self.schema_version,
+            dataset=self.dataset,
+            layer=self.layer,
+            step=self.step,
+            run_id=self.run_id,
+            step_id=self.step_id,
+            status=status,
+            duration_ms=duration_ms,
+            counts=counts,
+            error=error,
+            meta=meta,
+        )
+
+        self.store.insert_execution_log(event)
+        return event

@@ -8,6 +8,7 @@ from typing import Any, cast
 import pytest
 
 from metrka_core.metadata.file_marshal_models import SilverCandidateFile
+from metrka_core.observability.execution_events import ExecutionCounts, StepFinishedEvent
 from metrka_core.pipeline.action_runtime import ActionRuntime
 from metrka_core.pipeline.provenance import CodeProvenance, GitCodeRevision
 from metrka_core.pipeline.silver import silver_orchestrator
@@ -199,10 +200,9 @@ def test_queue_aggregates_candidate_outcomes_at_batch_boundary(
     assert result.warnings == ("cleanup warning",)
     assert len(seen_requests) == 1
 
-    finished = [
-        record for record in execution_logs.records if record["event_type"] == "step_finished"
-    ]
-    assert finished[-1]["counts"] == {"success": 1, "failed": 0, "skipped": 1, "blocked": 0}
+    finished = [event for event in execution_logs.records if isinstance(event, StepFinishedEvent)]
+
+    assert finished[-1].counts == ExecutionCounts(success=1, failed=0, skipped=1, blocked=0)
 
 
 def test_queue_counts_structured_candidate_failure_once(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -247,11 +247,10 @@ def test_queue_counts_structured_candidate_failure_once(monkeypatch: pytest.Monk
             tasks=[_task("example.failed")],
         )
 
-    finished = [
-        record for record in execution_logs.records if record["event_type"] == "step_finished"
-    ]
-    assert finished[-1]["status"] == "failed"
-    assert finished[-1]["counts"]["failed"] == 1
+    finished = [event for event in execution_logs.records if isinstance(event, StepFinishedEvent)]
+
+    assert finished[-1].status == "failed"
+    assert finished[-1].counts.failed == 1
 
 
 def test_queue_prepares_one_dataset_once_for_multiple_pending_candidates(

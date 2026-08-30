@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
 
 from metrka_core.metadata.postgres import PostgresSession, to_jsonb
+from metrka_core.observability.execution_events import ExecutionEvent, StepFinishedEvent
 from metrka_core.observability.execution_step_meta import ExecutionStepMeta
 from metrka_core.pipeline.provenance import CodeProvenance
 
@@ -88,14 +88,38 @@ class PostgresExecutionLogStore:
         self._session = session
         self._pipeline_run_id = pipeline_run_id
 
-    def insert_execution_log(self, record: dict[str, Any]) -> None:
+    def insert_execution_log(self, event: ExecutionEvent) -> None:
         """Transform an execution receipt into a relational row."""
-        counts = record.get("counts", {})
-        raw_meta = record.get("meta")
-        if raw_meta is not None and not isinstance(raw_meta, dict):
-            raise TypeError("Execution event meta must be a dictionary")
-        meta = ExecutionStepMeta.from_mapping(raw_meta)
-        error = record.get("error") or {}
+
+        meta = event.meta if event.meta is not None else ExecutionStepMeta()
+
+        if isinstance(event, StepFinishedEvent):
+            status = event.status
+            duration_ms = event.duration_ms
+            success_count = event.counts.success
+            failed_count = event.counts.failed
+            skipped_count = event.counts.skipped
+            blocked_count = event.counts.blocked
+
+            if event.error is not None:
+                error_type = event.error.error_type
+                error_message = event.error.message
+                error_payload = {"type": event.error.error_type, "message": event.error.message}
+            else:
+                error_type = None
+                error_message = None
+                error_payload = None
+
+        else:
+            status = None
+            duration_ms = None
+            success_count = None
+            failed_count = None
+            skipped_count = None
+            blocked_count = None
+            error_type = None
+            error_message = None
+            error_payload = None
 
         with self._session.cursor() as cur:
             cur.execute(
@@ -157,9 +181,9 @@ class PostgresExecutionLogStore:
                 )
                 """,
                 (
-                    record.get("ts"),
-                    record.get("schema_version"),
-                    record.get("dataset"),
+                    event.ts,
+                    event.schema_version,
+                    event.dataset,
                     meta.dataset_id,
                     meta.dataset_file_id,
                     meta.source_file_name,
@@ -171,17 +195,17 @@ class PostgresExecutionLogStore:
                     meta.partition_key,
                     meta.partition_value,
                     meta.version_period,
-                    record.get("layer"),
-                    record.get("step"),
-                    record.get("run_id"),
-                    record.get("step_id"),
-                    record.get("event_type"),
-                    record.get("status"),
-                    record.get("duration_ms"),
-                    counts.get("success"),
-                    counts.get("failed"),
-                    counts.get("skipped"),
-                    counts.get("blocked"),
+                    event.layer,
+                    event.step,
+                    event.run_id,
+                    event.step_id,
+                    event.event_type,
+                    status,
+                    duration_ms,
+                    success_count,
+                    failed_count,
+                    skipped_count,
+                    blocked_count,
                     meta.contract_hash,
                     meta.contract_name,
                     meta.contract_path,
@@ -197,10 +221,10 @@ class PostgresExecutionLogStore:
                     meta.input_byte_count,
                     meta.output_byte_count,
                     meta.manifest_path,
-                    error.get("type"),
-                    error.get("message"),
-                    to_jsonb(record.get("error")),
+                    error_type,
+                    error_message,
+                    to_jsonb(error_payload),
                     to_jsonb(meta.to_dict() or None),
-                    record.get("pipeline_run_id") or self._pipeline_run_id,
+                    self._pipeline_run_id,
                 ),
             )

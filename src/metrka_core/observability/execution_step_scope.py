@@ -14,11 +14,15 @@ import logging
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any
 
+from metrka_core.observability.execution_events import (
+    ExecutionCounts,
+    ExecutionError,
+    Layer,
+    StepStatus,
+)
 from metrka_core.observability.execution_ids import ExecutionIdGenerator, UuidExecutionIdGenerator
-from metrka_core.observability.execution_log import ExecutionLog, Layer
-from metrka_core.observability.execution_schema import StepStatus
+from metrka_core.observability.execution_log import ExecutionLog
 from metrka_core.observability.execution_step_meta import ExecutionStepMeta
 from metrka_core.observability.stores import ExecutionLogStore
 from metrka_core.pipeline.runtime_services import (
@@ -32,8 +36,8 @@ logger = logging.getLogger(__name__)
 
 
 def _require_non_negative_int(n: int) -> None:
-    if not isinstance(n, int) or n < 0:
-        raise ValueError("count increment must be a non-negative int")
+    if isinstance(n, bool) or not isinstance(n, int) or n < 0:
+        raise ValueError("count increment must be a non-negative integer")
 
 
 @dataclass
@@ -75,14 +79,11 @@ class StepContext:
         _require_non_negative_int(n)
         self.blocked += n
 
-    def counts_dict(self) -> dict[str, int]:
+    def execution_counts(self) -> ExecutionCounts:
         """Return aggregate step counters in execution-log format."""
-        return {
-            "success": self.success,
-            "failed": self.failed,
-            "skipped": self.skipped,
-            "blocked": self.blocked,
-        }
+        return ExecutionCounts(
+            success=self.success, failed=self.failed, skipped=self.skipped, blocked=self.blocked
+        )
 
 
 @contextmanager
@@ -122,7 +123,7 @@ def run_step(
     ctx = StepContext(execution=execution)
 
     status: StepStatus = "success"
-    error_obj: dict[str, Any] | None = None
+    error_obj: ExecutionError | None = None
     primary_error: BaseException | None = None
 
     resolved_start_meta = start_meta(execution) if callable(start_meta) else start_meta
@@ -134,7 +135,7 @@ def run_step(
     except BaseException as exc:
         primary_error = exc
         status = "failed" if isinstance(exc, Exception) else "interrupted"
-        error_obj = {"type": type(exc).__name__, "message": str(exc)}
+        error_obj = ExecutionError(error_type=type(exc).__name__, message=str(exc))
         raise
 
     finally:
@@ -144,7 +145,7 @@ def run_step(
             execution.step_finished(
                 status=status,
                 duration_ms=timer.ms(),
-                counts=ctx.counts_dict(),
+                counts=ctx.execution_counts(),
                 error=error_obj,
                 meta=finish_meta if finish_meta.to_dict() else None,
             )

@@ -19,6 +19,7 @@ from metrka_core.metadata.file_marshal_models import (
     MarshaledFile,
     MarshalEntry,
 )
+from metrka_core.observability.execution_events import ExecutionEvent, StepFinishedEvent
 from metrka_core.observability.stores import ExecutionLogStore
 from metrka_core.pipeline.silver.candidate_dataset_preparation import PreparedSilverDataset
 from metrka_core.pipeline.silver.candidate_processing import (
@@ -32,10 +33,10 @@ from metrka_core.pipeline.silver.version_period import VersionPeriod
 
 class RecordingExecutionLogStore:
     def __init__(self) -> None:
-        self.records: list[dict[str, Any]] = []
+        self.records: list[ExecutionEvent] = []
 
-    def insert_execution_log(self, record: dict[str, Any]) -> None:
-        self.records.append(dict(record))
+    def insert_execution_log(self, event: ExecutionEvent) -> None:
+        self.records.append(event)
 
 
 class FrozenClock:
@@ -199,8 +200,7 @@ def test_candidate_integrity_failure_happens_before_silver_build_start(tmp_path:
     build_ids.new_silver_build_id.assert_not_called()
     build_store.insert_started.assert_not_called()
 
-    finished = [
-        record for record in execution_logs.records if record["event_type"] == "step_finished"
-    ]
-    assert finished[-1]["step"] == "verify_bronze_artifact_integrity"
-    assert finished[-1]["status"] == "failed"
+    finished = [event for event in execution_logs.records if isinstance(event, StepFinishedEvent)]
+
+    assert finished[-1].step == "verify_bronze_artifact_integrity"
+    assert finished[-1].status == "failed"

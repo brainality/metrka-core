@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 from pytest_mock import MockerFixture
 
+from metrka_core.observability.execution_events import ExecutionCounts, ExecutionError
 from metrka_core.observability.execution_step_meta import ExecutionStepMeta
 from metrka_core.observability.execution_step_scope import StepContext, run_step
 
@@ -50,10 +51,10 @@ def test_step_context_aggregates_counters() -> None:
     context.count_skipped(3)
     context.count_blocked(4)
 
-    assert context.counts_dict() == {"success": 2, "failed": 1, "skipped": 3, "blocked": 4}
+    assert context.execution_counts() == ExecutionCounts(success=2, failed=1, skipped=3, blocked=4)
 
 
-@pytest.mark.parametrize("value", [-1, 1.5, "1"])
+@pytest.mark.parametrize("value", [-1, True, 1.5, "1"])
 def test_step_context_rejects_invalid_increment(value: object) -> None:
     context = StepContext(execution=MagicMock())
 
@@ -100,7 +101,7 @@ def test_run_step_logs_success_with_narrow_dependencies(mocker: MockerFixture) -
     execution.step_finished.assert_called_once_with(
         status="success",
         duration_ms=25,
-        counts={"success": 2, "failed": 0, "skipped": 0, "blocked": 0},
+        counts=ExecutionCounts(success=2, failed=0, skipped=0, blocked=0),
         error=None,
         meta=ExecutionStepMeta(table_key="county", output_row_count=100),
     )
@@ -121,8 +122,8 @@ def test_run_step_logs_failure_and_reraises(mocker: MockerFixture) -> None:
     execution.step_finished.assert_called_once_with(
         status="failed",
         duration_ms=30,
-        counts={"success": 0, "failed": 1, "skipped": 0, "blocked": 0},
-        error={"type": "RuntimeError", "message": "boom"},
+        counts=ExecutionCounts(success=0, failed=1, skipped=0, blocked=0),
+        error=ExecutionError(error_type="RuntimeError", message="boom"),
         meta=None,
     )
 
@@ -141,8 +142,8 @@ def test_run_step_records_keyboard_interrupt_and_reraises(mocker: MockerFixture)
     execution.step_finished.assert_called_once_with(
         status="interrupted",
         duration_ms=25,
-        counts={"success": 0, "failed": 0, "skipped": 0, "blocked": 0},
-        error={"type": "KeyboardInterrupt", "message": ""},
+        counts=ExecutionCounts(success=0, failed=0, skipped=0, blocked=0),
+        error=ExecutionError(error_type="KeyboardInterrupt", message=""),
         meta=None,
     )
 
@@ -162,8 +163,8 @@ def test_run_step_records_system_exit_and_reraises(mocker: MockerFixture) -> Non
     execution.step_finished.assert_called_once_with(
         status="interrupted",
         duration_ms=25,
-        counts={"success": 0, "failed": 0, "skipped": 0, "blocked": 0},
-        error={"type": "SystemExit", "message": "130"},
+        counts=ExecutionCounts(success=0, failed=0, skipped=0, blocked=0),
+        error=ExecutionError(error_type="SystemExit", message="130"),
         meta=None,
     )
 
