@@ -76,6 +76,7 @@ def test_pipeline_api_exports() -> None:
         "WorkspaceExportVerificationResult",
         "WorkspaceValidationResult",
         "create_core_registry",
+        "create_workspace_location_resolver",
         "execute_configured_pipeline",
         "export_workspace",
         "initialize_workspace",

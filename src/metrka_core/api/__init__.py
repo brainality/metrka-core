@@ -17,6 +17,7 @@ from metrka_core.metadata.file_ids import DatasetFileIdGenerator
 from metrka_core.pipeline.bootstrap import open_pipeline_context
 from metrka_core.pipeline.bronze.run_ids import BronzeRunIdGenerator
 from metrka_core.pipeline.composition.runtime_services import RuntimeServices
+from metrka_core.pipeline.composition.workspace_locations import create_workspace_location_resolver
 from metrka_core.pipeline.config import RuntimeEnvironment
 from metrka_core.pipeline.default_registry import create_core_registry
 from metrka_core.pipeline.models import PipelineRunState
@@ -51,6 +52,7 @@ __all__ = [
     "WorkspacePlacement",
     "SilverBuildIdGenerator",
     "create_core_registry",
+    "create_workspace_location_resolver",
     "execute_configured_pipeline",
     "export_workspace",
     "initialize_workspace",
