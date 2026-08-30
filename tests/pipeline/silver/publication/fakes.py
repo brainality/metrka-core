@@ -15,6 +15,7 @@ from metrka_core.catalog.publication_projection_models import (
     PublicationProjectionKind,
     PublicationProjectionStatus,
 )
+from metrka_core.observability.execution_events import ExecutionEvent
 from metrka_core.pipeline.silver.artifact_models import (
     SilverArtifactDeletionError,
     SilverBuildArtifactDeletionResult,
@@ -240,12 +241,13 @@ def make_manifest(
 
 class RecordingExecutionLogStore:
     def __init__(self, *, fail_on_event_type: str | None = None) -> None:
-        self.records: list[dict[str, Any]] = []
+        self.records: list[ExecutionEvent] = []
         self.fail_on_event_type = fail_on_event_type
 
-    def insert_execution_log(self, record: dict[str, Any]) -> None:
-        self.records.append(dict(record))
-        if record.get("event_type") == self.fail_on_event_type:
+    def insert_execution_log(self, event: ExecutionEvent) -> None:
+        self.records.append(event)
+
+        if event.event_type == self.fail_on_event_type:
             raise RuntimeError("execution log unavailable")
 
 

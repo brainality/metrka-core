@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
-from pytest_mock import MockerFixture
 
+from metrka_core.observability.execution_events import (
+    ExecutionCounts,
+    StepFinishedEvent,
+    StepStartedEvent,
+)
 from metrka_core.observability.execution_ids import UuidExecutionIdGenerator
 from metrka_core.observability.execution_log import ExecutionLog, ExecutionTimer
 from metrka_core.observability.execution_step_meta import ExecutionStepMeta
@@ -71,14 +75,19 @@ def test_timer_uses_monotonic_clock() -> None:
 
 
 @pytest.mark.parametrize("layer", ["", "Bronze", "gold", "platinum"])
-def test_execution_log_rejects_invalid_layer(layer: str) -> None:
+def test_invalid_layer_is_not_inserted(layer: str) -> None:
+    store = MagicMock()
+    log = ExecutionLog(
+        dataset="adult-lead",
+        step="extract_archive",
+        layer=layer,  # type: ignore[arg-type]
+        store=store,
+    )
+
     with pytest.raises(ValueError, match="layer must be one of"):
-        ExecutionLog(
-            dataset="adult-lead",
-            step="extract_archive",
-            layer=layer,  # type: ignore[arg-type]
-            store=MagicMock(),
-        )
+        log.step_started()
+
+    store.insert_execution_log.assert_not_called()
 
 
 def test_execution_log_requires_dataset_step_and_store() -> None:
@@ -96,31 +105,32 @@ def test_execution_log_requires_dataset_step_and_store() -> None:
         )
 
 
-def test_base_record_uses_explicit_dataset_identity() -> None:
+def test_started_event_uses_explicit_dataset_identity() -> None:
+    store = MagicMock()
+    meta = ExecutionStepMeta(extra={"source": "landing"})
     log = ExecutionLog(
         dataset="adult-lead",
         step="extract_archive",
         layer="bronze",
         run_id="run-1",
         step_id="step-1",
-        store=MagicMock(),
+        store=store,
         clock=FrozenClock(),
     )
 
-    record = log.base_record(
-        event_type="step_started", meta=ExecutionStepMeta(extra={"source": "landing"})
-    )
+    event = log.step_started(meta=meta)
 
-    assert record["ts"] == "2026-08-14T12:30:00.123456+00:00"
-    assert record["dataset"] == "adult-lead"
-    assert record["run_id"] == "run-1"
-    assert record["step_id"] == "step-1"
-    assert record["meta"] == {"source": "landing"}
+    assert isinstance(event, StepStartedEvent)
+    assert event.ts == FROZEN_TIME
+    assert event.dataset == "adult-lead"
+    assert event.run_id == "run-1"
+    assert event.step_id == "step-1"
+    assert event.meta == meta
+    store.insert_execution_log.assert_called_once_with(event)
 
 
-def test_step_events_are_validated_and_written(mocker: MockerFixture) -> None:
+def test_step_events_are_written_as_typed_events() -> None:
     store = MagicMock()
-    validate = mocker.patch("metrka_core.observability.execution_log.validate_execution_event")
     log = ExecutionLog(
         dataset="adult-lead",
         step="prepare",
@@ -128,32 +138,36 @@ def test_step_events_are_validated_and_written(mocker: MockerFixture) -> None:
         run_id="run-1",
         step_id="step-1",
         store=store,
+        clock=FrozenClock(),
     )
 
     started = log.step_started(meta=ExecutionStepMeta(table_key="county"))
     finished = log.step_finished(
         status="success",
         duration_ms=15,
-        counts={"success": 1, "failed": 0, "skipped": 0, "blocked": 0},
+        counts=ExecutionCounts(success=1, failed=0, skipped=0, blocked=0),
     )
 
-    assert started["event_type"] == "step_started"
-    assert finished["event_type"] == "step_finished"
-    assert store.insert_execution_log.call_count == 2
-    assert validate.call_count == 2
+    assert isinstance(started, StepStartedEvent)
+    assert isinstance(finished, StepFinishedEvent)
+    assert started.event_type == "step_started"
+    assert finished.event_type == "step_finished"
+
+    assert store.insert_execution_log.call_args_list == [call(started), call(finished)]
 
 
-def test_invalid_event_is_never_inserted(mocker: MockerFixture) -> None:
+class NaiveClock:
+    """Return an invalid timestamp without timezone information."""
+
+    def now_utc(self) -> datetime:
+        return datetime(2026, 8, 30, 12, 0)
+
+
+def test_invalid_event_is_never_inserted() -> None:
     store = MagicMock()
-    validate = mocker.patch(
-        "metrka_core.observability.execution_log.validate_execution_event",
-        side_effect=ValueError("invalid execution event"),
-    )
-    log = ExecutionLog(dataset="adult-lead", step="prepare", store=store)
-    record = log.base_record(event_type="step_started")
+    log = ExecutionLog(dataset="adult-lead", step="prepare", store=store, clock=NaiveClock())
 
-    with pytest.raises(ValueError, match="invalid execution event"):
-        log.emit(record)
+    with pytest.raises(ValueError, match="timestamp must be in UTC"):
+        log.step_started()
 
-    validate.assert_called_once_with(record)
     store.insert_execution_log.assert_not_called()

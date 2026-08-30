@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Protocol
+from typing import Protocol
 
+from metrka_core.observability.execution_events import ExecutionEvent
 from metrka_core.pipeline.provenance import CodeProvenance
 
 
@@ -34,4 +35,4 @@ class PipelineRunStore(Protocol):
 class ExecutionLogStore(Protocol):
     """Persist structured pipeline execution events."""
 
-    def insert_execution_log(self, record: dict[str, Any]) -> None: ...
+    def insert_execution_log(self, event: ExecutionEvent) -> None: ...
