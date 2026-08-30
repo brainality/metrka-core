@@ -69,6 +69,7 @@ requires the corresponding compatibility decision for the package version.
 | `WorkspacePlacement` | Configuration enum | Distinguishes portable workspaces from managed, independently placed definition and data roots. |
 | `SilverBuildIdGenerator` | Runtime protocol | Generates Silver build identifiers through `RuntimeServices`. |
 | `create_core_registry` | Registry factory | Creates a fresh registry containing the built-in acquisition extractors and pipeline actions. |
+| `create_workspace_location_resolver` | Workspace factory | Creates the configured `WorkspaceLocationResolver` while keeping its concrete YAML adapter private. |
 | `execute_configured_pipeline` | Advanced execution | Executes acquisition and configured YAML actions with an already opened context and composed registry. |
 | `export_workspace` | Workspace operation | Builds and verifies one portable customer ZIP from a configured portable or managed workspace. |
 | `initialize_workspace` | Workspace operation | Creates and registers a new Bronze-ready portable or managed workspace without overwriting existing state. |
@@ -351,6 +352,13 @@ internal and may move; external automation must not invoke
 
 
 ## Workspace locations
+
+Applications that only need to locate workspace roots can call
+`create_workspace_location_resolver()`. The factory returns the public
+`WorkspaceLocationResolver` protocol and keeps the standard YAML adapter an
+internal implementation detail. It applies the same explicit-path,
+environment-variable, development fallback, and production safeguards as
+pipeline execution.
 
 `open_pipeline_context()` accepts either `workspaces_config_path` or a custom
 `WorkspaceLocationResolver`. A resolver returns a `WorkspaceLocation` with a

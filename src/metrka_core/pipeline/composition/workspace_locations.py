@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from metrka_core.datasets.path_resolver import WorkspaceLocationResolver
 from metrka_core.datasets.yaml_workspace_resolver import YamlWorkspaceLocationResolver
-from metrka_core.pipeline.config import RuntimeConfigError, RuntimeEnvironment
+from metrka_core.pipeline.config import (
+    RuntimeConfigError,
+    RuntimeEnvironment,
+    resolve_runtime_environment,
+)
 
 WORKSPACES_CONFIG_ENVIRONMENT_VARIABLE = "METRKA_WORKSPACES_CONFIG_PATH"
 
@@ -96,3 +101,22 @@ def build_workspace_location_resolver(
         working_directory=working_directory,
     )
     return YamlWorkspaceLocationResolver.from_config_path(config_path)
+
+
+def create_workspace_location_resolver(
+    *,
+    workspaces_config_path: str | Path | None = None,
+    runtime_environment: RuntimeEnvironment | None = None,
+) -> WorkspaceLocationResolver:
+    """Create the configured public workspace-location resolver port."""
+
+    resolved_environment = (
+        runtime_environment
+        if runtime_environment is not None
+        else resolve_runtime_environment(os.environ.get("METRKA_ENV"))
+    )
+    return build_workspace_location_resolver(
+        explicit_config_path=workspaces_config_path,
+        environment_config_path=os.environ.get(WORKSPACES_CONFIG_ENVIRONMENT_VARIABLE),
+        runtime_environment=resolved_environment,
+    )

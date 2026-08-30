@@ -9,6 +9,12 @@ modules remain implementation details unless they are listed in
 
 ## [Unreleased]
 
+### Added
+
+- Public `create_workspace_location_resolver()` factory for applications that
+  need configured workspace roots without depending on the internal YAML
+  adapter.
+
 ## [1.0.0] - 2026-08-22
 
 First public release.
