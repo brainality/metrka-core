@@ -13,30 +13,16 @@ body:
       required: true
 
   - type: textarea
-    id: proposed_capability
-    attributes:
-      label: Proposed capability
-      description: Describe the desired behavior from the user's perspective.
-    validations:
-      required: true
-
-  - type: textarea
     id: example
     attributes:
       label: Example
       description: Show how the API, CLI command, contract, or configuration could look.
       render: text
 
-  - type: textarea
-    id: alternatives
-    attributes:
-      label: Alternatives considered
-      description: Describe existing workarounds or alternative designs.
-
   - type: dropdown
     id: proposed_scope
     attributes:
-      label: Proposed scope
+      label: Module
       description: Where do you think this capability belongs?
       options:
         - Generic metrka-core functionality
@@ -48,7 +34,14 @@ body:
       required: true
 
   - type: textarea
-    id: compatibility
+    id: scope
     attributes:
-      label: Compatibility considerations
-      description: Could this affect existing APIs, contracts, commands, or stored data?
+      label: Scope
+      description: Define the steps needed to implement it.
+      render: text
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: 
