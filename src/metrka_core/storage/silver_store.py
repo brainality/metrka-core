@@ -20,6 +20,7 @@ from metrka_core.pipeline.silver.artifact_models import (
 from metrka_core.storage.atomic_writes import atomic_copy_file, atomic_write_text
 from metrka_core.storage.naming import pointer_file_name
 from metrka_core.storage.path_segments import require_path_segment
+from metrka_core.storage.publication_manifest_reader import LocalPublicationManifestReader
 
 logger = logging.getLogger(__name__)
 
@@ -229,37 +230,9 @@ class LocalSilverArtifactStore:
     def read_manifest(self, *, path: str) -> dict[str, Any]:
         """Read one immutable Silver build manifest."""
 
-        if not path.strip():
-            raise ValueError("Silver manifest path must not be empty")
-
-        relative_path = Path(path)
-
-        if relative_path.is_absolute():
-            raise ValueError("Silver manifest path must be workspace-relative")
-
-        manifest_path = (self.workspace_root / relative_path).resolve()
-
-        manifests_root = (self.silver_root / "manifests").resolve()
-
-        try:
-            manifest_path.relative_to(manifests_root)
-        except ValueError as error:
-            raise ValueError(
-                f"Silver manifest path is outside manifest storage: {manifest_path}"
-            ) from error
-
-        if not manifest_path.is_file():
-            raise FileNotFoundError(f"Silver manifest does not exist: {manifest_path}")
-
-        try:
-            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as error:
-            raise RuntimeError(f"Could not read Silver manifest: {manifest_path}") from error
-
-        if not isinstance(payload, dict):
-            raise ValueError(f"Silver manifest must contain a JSON object: {manifest_path}")
-
-        return {str(key): value for key, value in payload.items()}
+        return LocalPublicationManifestReader(
+            data_root=self.workspace_root, manifests_root=self.silver_root / "manifests"
+        ).read_manifest(path=path)
 
     def list_build_artifact_directories(
         self, *, builds: Collection[SilverBuildArtifactQuery] | None = None

@@ -1,5 +1,10 @@
 """Stable public entry points for running Metrka pipelines."""
 
+from metrka_core.catalog.publication_manifest_reader import (
+    PublicationManifestFailure,
+    PublicationManifestReader,
+    PublicationManifestReadError,
+)
 from metrka_core.datasets.path_resolver import WorkspaceLocationResolver
 from metrka_core.datasets.scaffolding import WorkspaceInitializationResult, initialize_workspace
 from metrka_core.datasets.workspace_export import (
@@ -27,6 +32,7 @@ from metrka_core.pipeline.runner import execute_configured_pipeline
 from metrka_core.pipeline.runtime_services import Clock, PipelineRunIdGenerator
 from metrka_core.pipeline.silver.build_ids import SilverBuildIdGenerator
 from metrka_core.pipeline.workspace_validation import WorkspaceValidationResult, validate_workspace
+from metrka_core.storage.publication_manifest_reader import create_publication_manifest_reader
 
 __all__ = [
     "Clock",
@@ -35,6 +41,9 @@ __all__ = [
     "PipelineRunIdGenerator",
     "PipelineRunResult",
     "PipelineRunState",
+    "PublicationManifestFailure",
+    "PublicationManifestReader",
+    "PublicationManifestReadError",
     "RuntimeEnvironment",
     "RuntimeServices",
     "WorkspaceInitializationResult",
@@ -52,6 +61,7 @@ __all__ = [
     "WorkspacePlacement",
     "SilverBuildIdGenerator",
     "create_core_registry",
+    "create_publication_manifest_reader",
     "create_workspace_location_resolver",
     "execute_configured_pipeline",
     "export_workspace",

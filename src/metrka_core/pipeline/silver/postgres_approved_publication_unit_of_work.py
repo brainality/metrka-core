@@ -9,6 +9,7 @@ from metrka_core.catalog.publication_candidate_models import (
 )
 from metrka_core.catalog.publication_candidate_store import DatasetPublicationCandidateStore
 from metrka_core.catalog.publication_ids import PublicationIdGenerator
+from metrka_core.catalog.publication_manifest_reader import PublicationManifestReader
 from metrka_core.catalog.publication_models import DatasetPublicationRequest
 from metrka_core.catalog.publication_projection_store import DatasetPublicationProjectionStateStore
 from metrka_core.catalog.publication_store import DatasetPublicationStore
@@ -17,7 +18,6 @@ from metrka_core.pipeline.silver.approved_publication_unit_of_work import (
     ApprovedPublicationCommand,
     ApprovedPublicationResult,
 )
-from metrka_core.pipeline.silver.artifact_ports import SilverManifestReader
 from metrka_core.pipeline.silver.build_models import SilverBuild, SilverBuildStatus
 from metrka_core.pipeline.silver.build_store import SilverBuildStore
 from metrka_core.pipeline.silver.publication_asset_integrity import (
@@ -54,7 +54,7 @@ class PostgresApprovedPublicationUnitOfWork:
         publication_integrity: PublicationIntegrityBatchLinkStore,
         publication_gate_evidence: PublicationGateEvidenceStore,
         projection_states: DatasetPublicationProjectionStateStore,
-        silver_store: SilverManifestReader,
+        silver_store: PublicationManifestReader,
         publication_ids: PublicationIdGenerator,
     ) -> None:
         self._session = session

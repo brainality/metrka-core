@@ -13,22 +13,12 @@ from typing import Final, cast
 
 from metrka_core.datasets.workspace_location import WorkspacePlacement
 from metrka_core.storage.checksums import parse_sha256_checksum
+from metrka_core.storage.portable_paths import validate_portable_relative_path
 
 WORKSPACE_EXPORT_SCHEMA_VERSION: Final = 1
 WORKSPACE_EXPORT_PACKAGE_TYPE: Final = "metrka.customer-workspace"
 WORKSPACE_EXPORT_MANIFEST_NAME: Final = "metrka-workspace-manifest.json"
 _WORKSPACE_NAME_PATTERN: Final = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*\Z")
-_INVALID_PORTABLE_COMPONENT: Final = re.compile(r'[<>:"|?*\x00-\x1f]')
-_WINDOWS_RESERVED_NAMES: Final = frozenset(
-    {
-        "CON",
-        "PRN",
-        "AUX",
-        "NUL",
-        *(f"COM{number}" for number in range(1, 10)),
-        *(f"LPT{number}" for number in range(1, 10)),
-    }
-)
 
 
 class WorkspaceExportFileRole(StrEnum):
@@ -258,28 +248,6 @@ def validate_payload_path(path: str, *, role: WorkspaceExportFileRole) -> None:
         raise ValueError("Workspace export data files must be below data/")
     if role is WorkspaceExportFileRole.DEFINITION and is_data_path:
         raise ValueError("Workspace export definition files must not be below data/")
-
-
-def validate_portable_relative_path(path: str) -> None:
-    """Require a canonical relative path that extracts safely on Windows and POSIX."""
-
-    if not isinstance(path, str) or not path:
-        raise ValueError("Workspace export file path must not be empty")
-    if "\\" in path:
-        raise ValueError("Workspace export file paths must use POSIX separators")
-    pure_path = PurePosixPath(path)
-    if pure_path.is_absolute() or pure_path.as_posix() != path:
-        raise ValueError(f"Workspace export file path is not canonical: {path!r}")
-    if any(part in {"", ".", ".."} for part in pure_path.parts):
-        raise ValueError(f"Workspace export file path is unsafe: {path!r}")
-
-    for component in pure_path.parts:
-        if _INVALID_PORTABLE_COMPONENT.search(component) is not None:
-            raise ValueError(f"Workspace export path is not cross-platform safe: {path!r}")
-        if component.endswith((" ", ".")):
-            raise ValueError(f"Workspace export path is not cross-platform safe: {path!r}")
-        if component.split(".", maxsplit=1)[0].upper() in _WINDOWS_RESERVED_NAMES:
-            raise ValueError(f"Workspace export path uses a reserved filename: {path!r}")
 
 
 def validate_utc_timestamp(value: datetime, *, field_name: str) -> None:
