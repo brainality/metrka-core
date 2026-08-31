@@ -52,6 +52,9 @@ requires the corresponding compatibility decision for the package version.
 | `PipelineRunIdGenerator` | Runtime protocol | Generates pipeline execution identifiers through `RuntimeServices`. |
 | `PipelineRunResult` | Pipeline result | Returns the completed pipeline run identifier together with its `PipelineRunState`. |
 | `PipelineRunState` | Pipeline state | Carries values produced across acquisition and ordered actions and is exposed to action extensions. |
+| `PublicationManifestFailure` | Publication failure enum | Identifies why a manifest read failed without requiring callers to inspect exception text. |
+| `PublicationManifestReader` | Publication protocol | Reads immutable Silver publication manifests without exposing the concrete local-filesystem adapter. |
+| `PublicationManifestReadError` | Publication exception | Reports a structured manifest read failure with its stable reason and requested relative path. |
 | `RuntimeEnvironment` | Configuration enum | Selects development or production behavior, including production-safe configuration resolution. |
 | `RuntimeServices` | Runtime configuration | Bundles the clock and identifier providers used to make programmatic runs deterministic. |
 | `WorkspaceInitializationResult` | Workspace result | Reports the placement, roots, registry path, and generated configuration paths created by `initialize_workspace()`. |
@@ -69,6 +72,7 @@ requires the corresponding compatibility decision for the package version.
 | `WorkspacePlacement` | Configuration enum | Distinguishes portable workspaces from managed, independently placed definition and data roots. |
 | `SilverBuildIdGenerator` | Runtime protocol | Generates Silver build identifiers through `RuntimeServices`. |
 | `create_core_registry` | Registry factory | Creates a fresh registry containing the built-in acquisition extractors and pipeline actions. |
+| `create_publication_manifest_reader` | Publication factory | Creates a reader restricted to Silver manifest storage below one resolved workspace data root. |
 | `create_workspace_location_resolver` | Workspace factory | Creates the configured `WorkspaceLocationResolver` while keeping its concrete YAML adapter private. |
 | `execute_configured_pipeline` | Advanced execution | Executes acquisition and configured YAML actions with an already opened context and composed registry. |
 | `export_workspace` | Workspace operation | Builds and verifies one portable customer ZIP from a configured portable or managed workspace. |
@@ -78,6 +82,38 @@ requires the corresponding compatibility decision for the package version.
 | `run_pipeline` | Pipeline operation | Runs acquisition and all configured actions for one workspace and returns `PipelineRunResult`. |
 | `validate_workspace` | Workspace operation | Validates static workspace configuration without PostgreSQL, acquisition, action execution, or runtime writes. |
 | `verify_workspace_export` | Workspace operation | Verifies manifest structure, safe membership, sizes, and checksums without extracting the package. |
+
+## Publication manifest access
+
+Applications may combine the workspace resolver with the publication manifest
+reader without importing Core storage implementations:
+
+```python
+from metrka_core.api import (
+    RuntimeEnvironment,
+    create_publication_manifest_reader,
+    create_workspace_location_resolver,
+)
+
+location = create_workspace_location_resolver(
+    runtime_environment=RuntimeEnvironment.PRODUCTION,
+).resolve("gapminder")
+
+reader = create_publication_manifest_reader(data_root=location.data_root)
+# Read this value from catalog.dataset_publications.manifest_path.
+manifest = reader.read_manifest(path=manifest_path)
+```
+
+The supplied path must be a canonical POSIX relative path below
+`files/silver/manifests/`. Absolute paths, parent traversal, Windows drive
+paths, backslashes, non-portable components, and symlink escapes are rejected.
+The target must exist as a UTF-8 JSON file whose top-level value is an object.
+
+Operational failures raise `PublicationManifestReadError`. Its `reason` is a
+`PublicationManifestFailure`, so applications can distinguish missing files,
+unsafe paths, storage escapes, read failures, invalid JSON, and non-object JSON
+without parsing exception messages. Passing a non-`Path` data root remains a
+programming error and raises `TypeError`.
 
 ## Quality check extensibility
 

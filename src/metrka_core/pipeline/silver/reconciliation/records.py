@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from metrka_core.catalog.publication_asset_store import DatasetPublicationAssetStore
+from metrka_core.catalog.publication_manifest_reader import PublicationManifestReader
 from metrka_core.catalog.publication_models import DatasetPublication
 from metrka_core.catalog.publication_store import DatasetPublicationStore
-from metrka_core.pipeline.silver.artifact_ports import SilverManifestReader
 from metrka_core.pipeline.silver.publication_asset_mapping import publication_assets_from_manifest
 from metrka_core.pipeline.silver.publication_indexes import validate_publication_manifest
 from metrka_core.pipeline.silver.reconciliation.models import (
@@ -22,7 +22,7 @@ class PublicationRecordReconciler:
 
     publications: DatasetPublicationStore
     publication_assets: DatasetPublicationAssetStore
-    silver_store: SilverManifestReader
+    silver_store: PublicationManifestReader
     backfill_publication_assets: bool = False
 
     def reconcile(

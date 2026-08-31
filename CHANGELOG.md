@@ -14,6 +14,9 @@ modules remain implementation details unless they are listed in
 - Public `create_workspace_location_resolver()` factory for applications that
   need configured workspace roots without depending on the internal YAML
   adapter.
+- Public `PublicationManifestReader` and `create_publication_manifest_reader()`
+  for safely reading immutable Silver manifests below a resolved workspace
+  data root.
 
 ## [1.0.0] - 2026-08-22
 

@@ -15,10 +15,10 @@ from metrka_core.datasets.workspace_export_models import (
     WorkspaceExportIntegrityError,
     WorkspaceExportManifest,
     WorkspaceExportVerificationResult,
-    validate_portable_relative_path,
 )
 from metrka_core.storage.atomic_writes import atomic_write
 from metrka_core.storage.checksums import format_sha256_checksum, sha256_file, sha256_stream
+from metrka_core.storage.portable_paths import validate_portable_relative_path
 
 _MAX_MANIFEST_SIZE_BYTES: Final = 16 * 1024 * 1024
 

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from metrka_core.catalog.publication_manifest_reader import PublicationManifestReader
 from metrka_core.catalog.publication_models import DatasetPublication
 from metrka_core.lineage.transformation.store import TransformationImpactStore
-from metrka_core.pipeline.silver.artifact_ports import SilverManifestReader
 from metrka_core.pipeline.silver.build_store import SilverBuildStore
 from metrka_core.pipeline.silver.publication_indexes import validate_publication_manifest
 from metrka_core.pipeline.silver.reconciliation.models import (
@@ -29,7 +29,7 @@ class PublicationEvidenceReconciler:
     silver_builds: SilverBuildStore
     file_integrity: FileIntegrityVerifier
     transformation_impacts: TransformationImpactStore
-    silver_store: SilverManifestReader
+    silver_store: PublicationManifestReader
 
     def reconcile(
         self, *, publications: tuple[DatasetPublication, ...]

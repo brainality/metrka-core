@@ -6,6 +6,7 @@ from collections.abc import Collection
 from pathlib import Path
 from typing import Any, Protocol
 
+from metrka_core.catalog.publication_manifest_reader import PublicationManifestReader
 from metrka_core.pipeline.silver.artifact_models import (
     SilverArtifactRef,
     SilverBuildArtifactDeletionResult,
@@ -18,12 +19,6 @@ class WorkspaceRelativePathResolver(Protocol):
     """Convert managed filesystem paths to workspace-relative paths."""
 
     def relative_path(self, path: str | Path) -> str: ...
-
-
-class SilverManifestReader(Protocol):
-    """Read one immutable Silver build manifest."""
-
-    def read_manifest(self, *, path: str) -> dict[str, Any]: ...
 
 
 class SilverTableBuildArtifactStore(WorkspaceRelativePathResolver, Protocol):
@@ -74,7 +69,7 @@ class SilverHistoryViewWriter(Protocol):
 
 
 class SilverPublicationIndexArtifactStore(
-    SilverManifestReader,
+    PublicationManifestReader,
     WorkspaceRelativePathResolver,
     SilverLatestViewWriter,
     SilverHistoryViewWriter,
