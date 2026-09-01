@@ -17,6 +17,9 @@ modules remain implementation details unless they are listed in
 - Public `PublicationManifestReader` and `create_publication_manifest_reader()`
   for safely reading immutable Silver manifests below a resolved workspace
   data root.
+- Public `ContractSnapshotReader` and `create_contract_snapshot_reader()` for
+  safely reading immutable contract snapshot JSON below a resolved workspace
+  data root.
 
 ## [1.0.0] - 2026-08-22
 

@@ -54,6 +54,9 @@ def test_pipeline_api_exports() -> None:
 
     expected = {
         "Clock",
+        "ContractSnapshotFailure",
+        "ContractSnapshotReader",
+        "ContractSnapshotReadError",
         "PipelineRegistry",
         "PipelineBootstrapOptions",
         "PipelineRunIdGenerator",
@@ -78,6 +81,7 @@ def test_pipeline_api_exports() -> None:
         "WorkspaceExportResult",
         "WorkspaceExportVerificationResult",
         "WorkspaceValidationResult",
+        "create_contract_snapshot_reader",
         "create_core_registry",
         "create_publication_manifest_reader",
         "create_workspace_location_resolver",

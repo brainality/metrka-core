@@ -1,5 +1,10 @@
 """Stable public entry points for running Metrka pipelines."""
 
+from metrka_core.catalog.contract_snapshot_reader import (
+    ContractSnapshotFailure,
+    ContractSnapshotReader,
+    ContractSnapshotReadError,
+)
 from metrka_core.catalog.publication_manifest_reader import (
     PublicationManifestFailure,
     PublicationManifestReader,
@@ -32,41 +37,46 @@ from metrka_core.pipeline.runner import execute_configured_pipeline
 from metrka_core.pipeline.runtime_services import Clock, PipelineRunIdGenerator
 from metrka_core.pipeline.silver.build_ids import SilverBuildIdGenerator
 from metrka_core.pipeline.workspace_validation import WorkspaceValidationResult, validate_workspace
+from metrka_core.storage.contract_snapshot_reader import create_contract_snapshot_reader
 from metrka_core.storage.publication_manifest_reader import create_publication_manifest_reader
 
 __all__ = [
+    "BronzeRunIdGenerator",
     "Clock",
+    "ContractSnapshotFailure",
+    "ContractSnapshotReadError",
+    "ContractSnapshotReader",
+    "DatasetFileIdGenerator",
     "PipelineBootstrapOptions",
     "PipelineRegistry",
     "PipelineRunIdGenerator",
     "PipelineRunResult",
     "PipelineRunState",
     "PublicationManifestFailure",
-    "PublicationManifestReader",
     "PublicationManifestReadError",
+    "PublicationManifestReader",
     "RuntimeEnvironment",
     "RuntimeServices",
-    "WorkspaceInitializationResult",
-    "WorkspaceImportResult",
+    "SilverBuildIdGenerator",
     "WorkspaceExportContentPolicyError",
-    "WorkspaceExportPolicyViolation",
     "WorkspaceExportIntegrityError",
+    "WorkspaceExportPolicyViolation",
     "WorkspaceExportResult",
     "WorkspaceExportVerificationResult",
-    "WorkspaceValidationResult",
-    "BronzeRunIdGenerator",
-    "DatasetFileIdGenerator",
+    "WorkspaceImportResult",
+    "WorkspaceInitializationResult",
     "WorkspaceLocation",
     "WorkspaceLocationResolver",
     "WorkspacePlacement",
-    "SilverBuildIdGenerator",
+    "WorkspaceValidationResult",
+    "create_contract_snapshot_reader",
     "create_core_registry",
     "create_publication_manifest_reader",
     "create_workspace_location_resolver",
     "execute_configured_pipeline",
     "export_workspace",
-    "initialize_workspace",
     "import_workspace",
+    "initialize_workspace",
     "open_pipeline_context",
     "run_pipeline",
     "validate_workspace",
