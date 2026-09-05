@@ -75,3 +75,12 @@ body:
       options:
         - label: I have removed passwords, tokens, DSNs, customer data, and other sensitive information.
           required: true
+
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Provide the acceptance criterias.
+    validations:
+      required: true
