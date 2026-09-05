@@ -10,7 +10,7 @@
 [![Code size](https://img.shields.io/github/languages/code-size/brainality/metrka-core?label=code%20size)](https://github.com/brainality/metrka-core)
 [![Contributors](https://img.shields.io/github/contributors/brainality/metrka-core)](https://github.com/brainality/metrka-core/graphs/contributors)
 [![Last commit](https://img.shields.io/github/last-commit/brainality/metrka-core?label=last%20commit)](https://github.com/brainality/metrka-core/commits/main)
-[![Delivered features](https://img.shields.io/github/issues-search?query=repo%3Abrainality%2Fmetrka-core%20is%3Aissue%20is%3Aclosed%20label%3Afeature&label=features&color=blue)](https://github.com/brainality/metrka-core/issues?q=is%3Aissue%20is%3Aclosed%20label%3Afeature)
+[![Delivered features](https://img.shields.io/github/issues-search?query=repo%3Abrainality%2Fmetrka-core%20is%3Aissue%20is%3Aclosed%20label%3Aenhancement&label=features&color=blue)](https://github.com/brainality/metrka-core/issues?q=is%3Aissue%20is%3Aclosed%20label%3Aenhancement)
 
 Core transformation utilities for building reproducible, auditable datasets from public data sources.
 
