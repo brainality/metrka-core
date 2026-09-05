@@ -27,6 +27,61 @@ def _capture_time_from_id(source_capture_id: str) -> datetime:
         raise ValueError(f"Invalid source_capture_id: {source_capture_id}") from exc
 
 
+def _capture_from_directory(*, root: Path, capture_dir: Path) -> SourceCapture:
+    """Build a source capture from its directory and immutable receipt."""
+
+    source_capture_id = require_path_segment(capture_dir.name, "source_capture_id")
+    receipt = _read_capture_receipt(capture_dir=capture_dir, source_capture_id=source_capture_id)
+
+    return SourceCapture(
+        source_capture_id=source_capture_id,
+        captured_at=receipt.captured_at,
+        directory=capture_dir.resolve(),
+        relative_path=capture_dir.relative_to(root).as_posix(),
+    )
+
+
+def _read_capture_receipt(*, capture_dir: Path, source_capture_id: str) -> SourceCaptureReceipt:
+    """Read and validate the immutable receipt for one capture."""
+
+    receipt_path = capture_dir / "source_capture.json"
+
+    try:
+        receipt_text = receipt_path.read_text(encoding="utf-8")
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(f"Source-capture receipt does not exist: {receipt_path}") from exc
+    except OSError as exc:
+        raise OSError(f"Source-capture receipt could not be read: {receipt_path}") from exc
+
+    try:
+        payload: object = json.loads(receipt_text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Source-capture receipt is not valid JSON: {receipt_path}") from exc
+
+    try:
+        receipt = SourceCaptureReceipt.from_dict(payload)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid source-capture receipt {receipt_path}: {exc}") from exc
+
+    if receipt.source_capture_id != source_capture_id:
+        raise ValueError(
+            "Source-capture receipt identity does not match its directory: "
+            f"expected={source_capture_id!r}, "
+            f"actual={receipt.source_capture_id!r}"
+        )
+
+    encoded_capture_time = _capture_time_from_id(source_capture_id)
+
+    if receipt.captured_at.replace(microsecond=0) != encoded_capture_time:
+        raise ValueError(
+            "Source-capture receipt timestamp does not match its capture ID: "
+            f"source_capture_id={source_capture_id!r}, "
+            f"captured_at={receipt.captured_at.isoformat()!r}"
+        )
+
+    return receipt
+
+
 class LandingStore(Protocol):
     """Storage operations required by acquisition actions."""
 
@@ -42,6 +97,10 @@ class LandingStore(Protocol):
         self, *, date_str: str, source_capture_id: str | None = None
     ) -> SourceCapture:
         """Resolve one capture for deterministic backfill."""
+        ...
+
+    def read_receipt(self, capture: SourceCapture) -> SourceCaptureReceipt:
+        """Read the immutable receipt for a non-legacy capture."""
         ...
 
     def allocate_path(self, capture: SourceCapture, original_filename: str) -> Path:
@@ -126,28 +185,18 @@ class LocalLandingStore:
             if not capture_dir.is_dir():
                 raise FileNotFoundError(f"Source capture does not exist: {capture_dir}")
 
-            return SourceCapture(
-                source_capture_id=normalized_id,
-                captured_at=_capture_time_from_id(normalized_id),
-                directory=capture_dir.resolve(),
-                relative_path=(capture_dir.relative_to(self.root).as_posix()),
-            )
+            return _capture_from_directory(root=self.root, capture_dir=capture_dir)
 
         capture_dirs = sorted(
             path
             for path in target_date_dir.iterdir()
-            if (path.is_dir() and path.name.startswith("capture_"))
+            if path.is_dir() and path.name.startswith("capture_")
         )
 
         if len(capture_dirs) == 1:
             capture_dir = capture_dirs[0]
 
-            return SourceCapture(
-                source_capture_id=capture_dir.name,
-                captured_at=_capture_time_from_id(capture_dir.name),
-                directory=capture_dir.resolve(),
-                relative_path=(capture_dir.relative_to(self.root).as_posix()),
-            )
+            return _capture_from_directory(root=self.root, capture_dir=capture_dir)
 
         if len(capture_dirs) > 1:
             capture_ids = [path.name for path in capture_dirs]
@@ -165,13 +214,41 @@ class LocalLandingStore:
             captured_at = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=UTC)
 
             return SourceCapture(
-                source_capture_id=(f"legacy_{date_str}"),
+                source_capture_id=f"legacy_{date_str}",
                 captured_at=captured_at,
                 directory=target_date_dir.resolve(),
-                relative_path=(target_date_dir.relative_to(self.root).as_posix()),
+                relative_path=target_date_dir.relative_to(self.root).as_posix(),
             )
 
         raise FileNotFoundError(f"No source captures found for {date_str}")
+
+    def read_receipt(self, capture: SourceCapture) -> SourceCaptureReceipt:
+        capture_dir = capture.directory.expanduser().resolve()
+
+        try:
+            capture_dir.relative_to(self.root)
+        except ValueError as exc:
+            raise ValueError(
+                f"Source capture directory is outside the landing root: {capture_dir}"
+            ) from exc
+
+        if capture_dir.name != capture.source_capture_id:
+            raise ValueError(
+                "Source capture directory name does not match its identity: "
+                f"{capture.source_capture_id}"
+            )
+
+        receipt = _read_capture_receipt(
+            capture_dir=capture_dir, source_capture_id=capture.source_capture_id
+        )
+
+        if receipt.captured_at != capture.captured_at.astimezone(UTC):
+            raise ValueError(
+                "Resolved source capture timestamp does not match its receipt: "
+                f"{capture.source_capture_id}"
+            )
+
+        return receipt
 
     def allocate_path(self, capture: SourceCapture, original_filename: str) -> Path:
         filename = require_path_segment(original_filename.strip(), "original_filename")

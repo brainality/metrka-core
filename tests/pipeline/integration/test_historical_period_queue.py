@@ -61,6 +61,7 @@ from .deterministic_pipeline_support import (
     FrozenClock,
     fixed_code_provenance,
     runtime_services,
+    write_test_capture_receipt,
 )
 
 TEST_DSN = os.environ.get("METRKA_MIGRATION_TEST_DSN")
@@ -168,9 +169,18 @@ def _create_historical_workspace(
         )
         capture_dir.mkdir(parents=True)
         observed_on = capture.version_period.replace(day=15)
-        (capture_dir / "people.csv").write_text(
+        asset_path = capture_dir / "people.csv"
+        asset_path.write_text(
             f"id,observed_on,name\n{index:03d},{observed_on.isoformat()},period-{index}\n",
             encoding="utf-8",
+        )
+        write_test_capture_receipt(
+            workspace_root=workspace_root,
+            target_date=capture.target_date,
+            source_capture_id=capture.source_capture_id,
+            captured_at=capture.ingested_at,
+            pipeline_run_id=f"pipeline_{token}_capture_{index}",
+            asset_path=asset_path,
         )
 
     (config_dir / "main.yaml").write_text(

@@ -11,6 +11,8 @@ modules remain implementation details unless they are listed in
 
 ### Added
 
+- Preserve immutable source-capture and asset metadata when an existing
+  capture is replayed in backfill mode.
 - Public `create_workspace_location_resolver()` factory for applications that
   need configured workspace roots without depending on the internal YAML
   adapter.

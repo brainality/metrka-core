@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 
 from metrka_core.datasets.source_config import SourceConfig
@@ -99,6 +99,73 @@ def collect_landed_assets(
     return landed_assets
 
 
+def collect_receipted_landed_assets(
+    *, source_config: SourceConfig, target_dir: Path, receipt: SourceCaptureReceipt
+) -> list[LandedAsset]:
+    """Rebuild landed assets from immutable metadata recorded at acquisition."""
+
+    capture_root = target_dir.expanduser().resolve()
+    landed_assets: list[LandedAsset] = []
+
+    for recorded_asset in receipt.assets:
+        stream = source_config.streams.get(recorded_asset.stream_name)
+
+        if stream is None:
+            raise ValueError(
+                "Source-capture receipt contains a stream that is not configured: "
+                f"{recorded_asset.stream_name}"
+            )
+
+        if stream.artifact_role != recorded_asset.artifact_role:
+            raise ValueError(
+                "Source-capture receipt artifact role does not match the current "
+                f"stream configuration: {recorded_asset.stream_name}"
+            )
+
+        relative_path = PurePosixPath(recorded_asset.relative_path)
+        landed_file = capture_root.joinpath(*relative_path.parts).resolve()
+
+        try:
+            landed_file.relative_to(capture_root)
+        except ValueError as exc:
+            raise ValueError(
+                "Source-capture receipt asset resolves outside its capture directory: "
+                f"{recorded_asset.relative_path}"
+            ) from exc
+
+        if not landed_file.is_file():
+            raise FileNotFoundError(f"Source-capture receipt asset does not exist: {landed_file}")
+
+        actual_size_bytes = landed_file.stat().st_size
+
+        if actual_size_bytes != recorded_asset.size_bytes:
+            raise RuntimeError(
+                "Source-capture receipt asset size does not match the file: "
+                f"path={recorded_asset.relative_path!r}, "
+                f"expected={recorded_asset.size_bytes}, "
+                f"actual={actual_size_bytes}"
+            )
+
+        landed_assets.append(
+            LandedAsset(
+                stream_name=recorded_asset.stream_name,
+                path=landed_file,
+                source_capture_id=receipt.source_capture_id,
+                source_url=recorded_asset.source_url,
+                artifact_role=recorded_asset.artifact_role,
+                source_last_modified=recorded_asset.source_last_modified,
+            )
+        )
+
+    logger.info(
+        "Collected %d landed assets from immutable source-capture receipt %s",
+        len(landed_assets),
+        receipt.source_capture_id,
+    )
+
+    return landed_assets
+
+
 def acquire_assets(
     *,
     runtime: ActionRuntime,
@@ -127,15 +194,21 @@ def acquire_assets(
 
         logger.info("Using source capture %s from %s", capture.source_capture_id, capture.directory)
 
-        landed_assets = collect_landed_assets(
-            source_config=deps.source_config,
-            target_dir=capture.directory,
-            source_capture_id=capture.source_capture_id,
-            source_url=backfill_source_url,
-            match_mode=backfill_match_mode,
-            source_last_modified_from=backfill_source_last_modified_from,
-            target_date=target_date,
-        )
+        if capture.source_capture_id.startswith("legacy_"):
+            landed_assets = collect_landed_assets(
+                source_config=deps.source_config,
+                target_dir=capture.directory,
+                source_capture_id=capture.source_capture_id,
+                source_url=backfill_source_url,
+                match_mode=backfill_match_mode,
+                source_last_modified_from=backfill_source_last_modified_from,
+                target_date=target_date,
+            )
+        else:
+            receipt = deps.landing_store.read_receipt(capture)
+            landed_assets = collect_receipted_landed_assets(
+                source_config=deps.source_config, target_dir=capture.directory, receipt=receipt
+            )
 
         return AcquisitionResult(source_capture=capture, landed_assets=tuple(landed_assets))
 

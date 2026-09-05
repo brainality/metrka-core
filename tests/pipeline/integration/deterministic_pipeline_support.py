@@ -8,8 +8,14 @@ from itertools import count
 from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
 
+from metrka_core.pipeline.acquisition.models import (
+    SourceCapture,
+    SourceCaptureAssetReceipt,
+    SourceCaptureReceipt,
+)
 from metrka_core.pipeline.composition.runtime_services import RuntimeServices
 from metrka_core.pipeline.provenance import CodeProvenance, GitCodeRevision
+from metrka_core.storage.landing_store import LocalLandingStore
 
 PIPELINE_TIME = datetime(2026, 8, 14, 10, 0, tzinfo=UTC)
 TARGET_DATE = "2026-08-14"
@@ -153,6 +159,49 @@ def fixed_code_provenance() -> CodeProvenance:
     )
 
 
+def write_test_capture_receipt(
+    *,
+    workspace_root: Path,
+    target_date: str,
+    source_capture_id: str,
+    captured_at: datetime,
+    pipeline_run_id: str,
+    asset_path: Path,
+) -> None:
+    """Write a valid immutable receipt for one pre-created test capture."""
+
+    landing_root = workspace_root / "data" / "files" / "bronze" / "landing"
+    capture_dir = asset_path.parent
+    capture = SourceCapture(
+        source_capture_id=source_capture_id,
+        captured_at=captured_at,
+        directory=capture_dir.resolve(),
+        relative_path=capture_dir.relative_to(landing_root).as_posix(),
+    )
+    landing_store = LocalLandingStore(
+        root=landing_root,
+        clock=FrozenClock(captured_at),
+        source_capture_ids=FixedSourceCaptureIds(source_capture_id),
+    )
+    receipt = SourceCaptureReceipt(
+        source_capture_id=source_capture_id,
+        pipeline_run_id=pipeline_run_id,
+        captured_at=captured_at,
+        assets=(
+            SourceCaptureAssetReceipt(
+                stream_name="people",
+                relative_path=asset_path.relative_to(capture_dir).as_posix(),
+                source_url="https://example.test/people.csv",
+                artifact_role="data",
+                size_bytes=asset_path.stat().st_size,
+                source_last_modified=datetime.strptime(target_date, "%Y-%m-%d").replace(tzinfo=UTC),
+            ),
+        ),
+    )
+
+    landing_store.write_receipt(capture, receipt)
+
+
 def create_test_workspace(*, base_dir: Path, token: str) -> DeterministicWorkspace:
     """Create one minimal but complete dataset workspace."""
 
@@ -167,8 +216,15 @@ def create_test_workspace(*, base_dir: Path, token: str) -> DeterministicWorkspa
     capture_dir.mkdir(parents=True)
     config_dir.mkdir(parents=True)
 
-    (capture_dir / "people.csv").write_text(
-        "id,year,name\n001,2025,Alice\n002,2025,Bob\n", encoding="utf-8"
+    asset_path = capture_dir / "people.csv"
+    asset_path.write_text("id,year,name\n001,2025,Alice\n002,2025,Bob\n", encoding="utf-8")
+    write_test_capture_receipt(
+        workspace_root=workspace_root,
+        target_date=TARGET_DATE,
+        source_capture_id=source_capture_id,
+        captured_at=PIPELINE_TIME,
+        pipeline_run_id=f"pipeline_{token}_capture",
+        asset_path=asset_path,
     )
 
     (config_dir / "main.yaml").write_text(
