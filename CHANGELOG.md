@@ -23,6 +23,13 @@ modules remain implementation details unless they are listed in
   safely reading immutable contract snapshot JSON below a resolved workspace
   data root.
 
+### Fixed
+
+- Contract snapshot registration is now idempotent and rejects conflicting
+  metadata instead of overwriting an existing content-based snapshot.
+- The PostgreSQL ETL role can no longer update or delete registered contract
+  snapshots.
+
 ## [1.0.0] - 2026-08-22
 
 First public release.

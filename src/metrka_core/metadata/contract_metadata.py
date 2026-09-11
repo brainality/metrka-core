@@ -8,6 +8,10 @@ from typing import Any, Protocol
 class ContractMetadataStore(Protocol):
     """Persist metadata describing immutable contract snapshots."""
 
-    def upsert_contract_snapshot(self, record: dict[str, Any]) -> None:
-        """Insert or update one contract snapshot metadata row."""
+    def register_contract_snapshot(self, record: dict[str, Any]) -> None:
+        """Insert one immutable contract snapshot.
+
+        Repeating the same registration is allowed, while conflicting metadata
+        for an existing contract hash must be rejected.
+        """
         ...

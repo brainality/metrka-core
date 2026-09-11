@@ -480,3 +480,36 @@ def test_initial_catalog_categories_are_seeded() -> None:
         ("health-medicine", "Health & Medicine", 10, True),
         ("crime-justice", "Crime & Justice", 20, True),
     ]
+
+
+def test_contract_snapshots_are_insert_only_for_etl() -> None:
+    with psycopg.connect(_test_dsn()) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT
+                has_table_privilege(
+                    'metrka_etl',
+                    'meta.contract_snapshots',
+                    'SELECT'
+                ),
+                has_table_privilege(
+                    'metrka_etl',
+                    'meta.contract_snapshots',
+                    'INSERT'
+                ),
+                has_table_privilege(
+                    'metrka_etl',
+                    'meta.contract_snapshots',
+                    'UPDATE'
+                ),
+                has_table_privilege(
+                    'metrka_etl',
+                    'meta.contract_snapshots',
+                    'DELETE'
+                )
+            """
+        )
+
+        privileges = cursor.fetchone()
+
+    assert privileges == (True, True, False, False)

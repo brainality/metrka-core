@@ -107,7 +107,7 @@ def register_contract_snapshot(
         contract_store=contract_store, dataset_id=dataset_id, contract_path=contract_path
     )
 
-    contract_metadata_store.upsert_contract_snapshot(
+    contract_metadata_store.register_contract_snapshot(
         {
             **contract_meta,
             "dataset": dataset_name,
