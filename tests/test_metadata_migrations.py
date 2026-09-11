@@ -10,14 +10,16 @@ def _script() -> ScriptDirectory:
 
 
 def test_metadata_migrations_have_one_current_head() -> None:
-    assert _script().get_heads() == ["0001_initial"]
+    assert _script().get_heads() == ["0002_contract_snapshot_immutable"]
 
 
-def test_metadata_migrations_start_with_one_public_baseline() -> None:
+def test_metadata_migrations_from_one_linear_history() -> None:
     revisions = list(_script().walk_revisions())
 
-    assert [revision.revision for revision in revisions] == ["0001_initial"]
-    assert revisions[0].down_revision is None
+    assert [(revision.revision, revision.down_revision) for revision in revisions] == [
+        ("0002_contract_snapshot_immutable", "0001_initial"),
+        ("0001_initial", None),
+    ]
 
 
 def test_metadata_migration_revision_ids_fit_alembic_ledger() -> None:
