@@ -513,3 +513,37 @@ def test_contract_snapshots_are_insert_only_for_etl() -> None:
         privileges = cursor.fetchone()
 
     assert privileges == (True, True, False, False)
+
+
+def test_contract_snapshots_use_dataset_scoped_primary_key() -> None:
+    with psycopg.connect(_test_dsn()) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT attribute.attname
+            FROM pg_index AS index_definition
+            CROSS JOIN LATERAL unnest(index_definition.indkey)
+                WITH ORDINALITY AS primary_key_column(attnum, position)
+            JOIN pg_attribute AS attribute
+              ON attribute.attrelid = index_definition.indrelid
+             AND attribute.attnum = primary_key_column.attnum
+            WHERE index_definition.indrelid =
+                  'meta.contract_snapshots'::regclass
+              AND index_definition.indisprimary
+            ORDER BY primary_key_column.position
+            """
+        )
+        primary_key_columns = cursor.fetchall()
+
+        cursor.execute(
+            """
+            SELECT is_nullable
+            FROM information_schema.columns
+            WHERE table_schema = 'meta'
+              AND table_name = 'contract_snapshots'
+              AND column_name = 'dataset_id'
+            """
+        )
+        dataset_id_nullable = cursor.fetchone()
+
+    assert primary_key_columns == [("dataset_id",), ("contract_hash",)]
+    assert dataset_id_nullable == ("NO",)
