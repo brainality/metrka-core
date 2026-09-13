@@ -25,6 +25,8 @@ modules remain implementation details unless they are listed in
 
 ### Fixed
 
+- Quality-check evidence now stores workspace-relative POSIX artifact paths
+  instead of absolute paths from the pipeline host.
 - Contract snapshot registration is now idempotent and rejects conflicting
   metadata instead of overwriting an existing content-based snapshot.
 - The PostgreSQL ETL role can no longer update or delete registered contract

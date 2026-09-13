@@ -36,7 +36,12 @@ from metrka_core.pipeline.bronze.models import BronzeIngestResult
 from metrka_core.pipeline.bronze.run_ids import BronzeRunIdGenerator
 from metrka_core.pipeline.bronze.unpack_zip import secure_extract_zip
 from metrka_core.pipeline.runtime_services import Clock
-from metrka_core.quality.models import QualityConfig, QualityGate, QualityGateResult
+from metrka_core.quality.models import (
+    QualityConfig,
+    QualityGate,
+    QualityGateResult,
+    QualityOutputFile,
+)
 from metrka_core.quality.registry import QualityRegistry
 from metrka_core.quality.runner import run_quality_gate
 from metrka_core.quality.store import QualityCheckStore
@@ -401,8 +406,15 @@ def ingest_to_bronze(
         # ----------------------------------------------------------------
         # 6. Bronze post-quality gate
         # ----------------------------------------------------------------
+        quality_output_files = tuple(
+            QualityOutputFile(
+                local_path=path, workspace_relative_path=bronze_store.relative_path(path)
+            )
+            for path in output_paths
+        )
+
         post_bronze_context.update(
-            {"output_required": output_required, "output_files": output_paths}
+            {"output_required": output_required, "output_files": quality_output_files}
         )
 
         post_quality = run_quality_gate(

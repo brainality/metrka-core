@@ -3,17 +3,20 @@
 from __future__ import annotations
 
 import time
-from pathlib import Path
 
-from metrka_core.quality.models import QualityCheckInput, QualityCheckResult
+from metrka_core.quality.models import QualityCheckInput, QualityCheckResult, QualityOutputFile
 
 
 def output_files_created(check_input: QualityCheckInput) -> QualityCheckResult:
     """Verify that a gate produced enough non-empty output files.
 
     Supported gates: ``post_bronze`` and ``post_silver``. Runtime context uses
-    ``output_files`` and optional ``output_required`` (default ``True``). When
-    output is not required the check returns ``SKIPPED``. Parameters
+    ``output_files`` containing
+    :class:`~metrka_core.quality.models.QualityOutputFile` values and optional
+    ``output_required`` (default ``True``). Local paths are used only for runtime
+    filesystem checks; persisted evidence uses workspace-relative paths.
+
+    When output is not required the check returns ``SKIPPED``. Parameters
     ``min_files`` and ``min_file_bytes`` both default to 1 and must be
     non-negative.
     """
@@ -31,9 +34,23 @@ def output_files_created(check_input: QualityCheckInput) -> QualityCheckResult:
     if min_file_bytes < 0:
         raise ValueError("min_file_bytes must be greater than or equal to 0")
 
-    raw_output_files = context.get("output_files") or []
+    raw_output_files = context.get("output_files", ())
 
-    output_files = [value if isinstance(value, Path) else Path(value) for value in raw_output_files]
+    if raw_output_files is None:
+        raw_output_files = ()
+
+    if not isinstance(raw_output_files, (list, tuple)):
+        raise TypeError("output_files_created requires 'output_files' to be a list or tuple")
+
+    output_files: list[QualityOutputFile] = []
+
+    for value in raw_output_files:
+        if not isinstance(value, QualityOutputFile):
+            raise TypeError(
+                "output_files_created requires every 'output_files' item to be a QualityOutputFile"
+            )
+
+        output_files.append(value)
 
     details = {
         "storage_zone": context.get("storage_zone"),
@@ -54,12 +71,17 @@ def output_files_created(check_input: QualityCheckInput) -> QualityCheckResult:
             duration_ms=int((time.perf_counter() - started) * 1000),
         )
 
-    missing_files = [str(path) for path in output_files if not path.is_file()]
+    missing_files = [
+        output_file.workspace_relative_path
+        for output_file in output_files
+        if not output_file.local_path.is_file()
+    ]
 
     undersized_files = [
-        str(path)
-        for path in output_files
-        if path.is_file() and path.stat().st_size < min_file_bytes
+        output_file.workspace_relative_path
+        for output_file in output_files
+        if output_file.local_path.is_file()
+        and output_file.local_path.stat().st_size < min_file_bytes
     ]
 
     passed = len(output_files) >= min_files and not missing_files and not undersized_files
@@ -74,7 +96,7 @@ def output_files_created(check_input: QualityCheckInput) -> QualityCheckResult:
         },
         actual={
             "output_file_count": len(output_files),
-            "output_files": [str(path) for path in output_files],
+            "output_files": [output_file.workspace_relative_path for output_file in output_files],
             "missing_files": missing_files,
             "undersized_files": undersized_files,
         },

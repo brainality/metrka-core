@@ -5,8 +5,11 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
+from pathlib import Path
 from types import MappingProxyType
 from typing import Any
+
+from metrka_core.storage.portable_paths import validate_portable_relative_path
 
 
 class QualityGate(StrEnum):
@@ -45,6 +48,22 @@ class QualityStatus(StrEnum):
     FAILED = "failed"
     ERROR = "error"
     SKIPPED = "skipped"
+
+
+@dataclass(frozen=True, slots=True)
+class QualityOutputFile:
+    """One output file with separate runtime and persisted identities."""
+
+    local_path: Path
+    workspace_relative_path: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.local_path, Path):
+            raise TypeError("Quality output local_path must be a Path")
+
+        validate_portable_relative_path(self.workspace_relative_path)
+
+        object.__setattr__(self, "local_path", self.local_path.expanduser().resolve(strict=False))
 
 
 @dataclass(frozen=True, slots=True)

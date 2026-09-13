@@ -102,10 +102,13 @@ def _ingest(
     bronze_store: LocalBronzeArtifactStore,
     marshal_store: MarshalStore,
     execution_store: MagicMock,
+    quality_store: MagicMock | None = None,
 ):
+    resolved_quality_store = quality_store if quality_store is not None else MagicMock()
+
     return ingest_to_bronze(
         clock=FrozenClock(),
-        dataset_file_ids=(UuidDatasetFileIdGenerator()),
+        dataset_file_ids=UuidDatasetFileIdGenerator(),
         bronze_run_ids=UuidBronzeRunIdGenerator(),
         dataset_name="adult-lead",
         bronze_store=bronze_store,
@@ -114,12 +117,44 @@ def _ingest(
         dataset_id="dataset-1",
         source_url="https://example.test/source.csv",
         execution_log_store=execution_store,
-        quality_store=MagicMock(),
+        quality_store=resolved_quality_store,
         file_marshal_store=marshal_store,  # type: ignore[arg-type]
         quality_config=_quality_config(),
         quality_registry=create_default_quality_registry(),
         pipeline_run_id="pipeline-1",
     )
+
+
+def test_flat_file_quality_evidence_uses_workspace_relative_paths(tmp_path: Path) -> None:
+    source = tmp_path / "source.csv"
+    source.write_text("id,name\n1,Alice\n", encoding="utf-8")
+
+    bronze_store = _bronze_store(tmp_path)
+    quality_store = MagicMock()
+
+    result = _ingest(
+        source=source,
+        bronze_store=bronze_store,
+        marshal_store=MarshalStore(),
+        execution_store=MagicMock(),
+        quality_store=quality_store,
+    )
+
+    assert result is not None
+    assert result.bronze_run_id is not None
+
+    quality_records = [
+        call.args[0] for call in quality_store.insert_quality_check_run.call_args_list
+    ]
+    output_record = next(
+        record for record in quality_records if record["check_id"] == "test-post-bronze-output"
+    )
+
+    bronze_file = bronze_store.run_dir(run_id=result.bronze_run_id) / "source.csv"
+    expected_path = bronze_store.relative_path(bronze_file)
+
+    assert output_record["actual"]["output_files"] == [expected_path]
+    assert str(tmp_path) not in str(output_record["actual"])
 
 
 def test_missing_landed_file_returns_none(tmp_path: Path) -> None:

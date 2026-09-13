@@ -36,7 +36,7 @@ from metrka_core.pipeline.silver.fingerprints import (
     fingerprint_silver_table,
 )
 from metrka_core.pipeline.silver.version_period import VersionPeriod
-from metrka_core.quality.models import QualityConfig, QualityGate
+from metrka_core.quality.models import QualityConfig, QualityGate, QualityOutputFile
 from metrka_core.quality.registry import QualityRegistry
 from metrka_core.quality.runner import run_quality_gate
 from metrka_core.quality.store import QualityCheckStore
@@ -288,6 +288,13 @@ def build_silver_table(
 
         expected_output_columns = [*table_cfg["canonical_order"], *SILVER_METADATA_COLUMNS]
 
+        quality_output_files = tuple(
+            QualityOutputFile(
+                local_path=path, workspace_relative_path=silver_store.relative_path(path)
+            )
+            for path in saved_paths
+        )
+
         post_silver_context = {
             "pipeline_run_id": pipeline_run_id,
             "dataset_id": dataset_id,
@@ -302,7 +309,7 @@ def build_silver_table(
             "expected_columns": expected_output_columns,
             "allow_extra_columns": False,
             "output_required": True,
-            "output_files": saved_paths,
+            "output_files": quality_output_files,
             "storage_zone": "silver_staging",
             "silver_staging_path": silver_store.relative_path(target_path.parent),
         }
