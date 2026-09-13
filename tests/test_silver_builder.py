@@ -66,6 +66,13 @@ def _quality_config() -> QualityConfig:
                 severity=QualitySeverity.BLOCKING,
                 params={"min_rows": 1},
             ),
+            QualityCheckSpec(
+                check_id="test-post-silver-output",
+                check_type="output_files_created",
+                gate=QualityGate.POST_SILVER,
+                severity=QualitySeverity.BLOCKING,
+                params={"min_files": 1, "min_file_bytes": 1},
+            ),
         ),
     )
 
@@ -77,10 +84,13 @@ def _build(
     input_format: str = "csv",
     transformation_impact_store: MagicMock | None = None,
     transformation_impact_ids: MagicMock | None = None,
+    quality_store: MagicMock | None = None,
 ):
     resolved_impact_store = (
         transformation_impact_store if transformation_impact_store is not None else MagicMock()
     )
+
+    resolved_quality_store = quality_store if quality_store is not None else MagicMock()
 
     if transformation_impact_ids is None:
         resolved_impact_ids = MagicMock()
@@ -109,7 +119,7 @@ def _build(
         cfg_path=_contract(tmp_path),
         table_key="people",
         execution_log_store=MagicMock(),
-        quality_store=MagicMock(),
+        quality_store=resolved_quality_store,
         transformation_impact_store=resolved_impact_store,
         transformation_impact_ids=resolved_impact_ids,
         run_id="silver-run-1",
@@ -174,3 +184,26 @@ def test_builder_assigns_explicit_identity_and_time_to_impacts(tmp_path: Path) -
     assert all(impact.recorded_at == SILVER_PROCESSED_AT for impact in impacts)
     assert all(impact.transformation_impact_id.startswith("impact-fixed-") for impact in impacts)
     assert impact_ids.new_transformation_impact_id.call_count == len(impacts)
+
+
+def test_builder_quality_evidence_uses_workspace_relative_paths(tmp_path: Path) -> None:
+    source = tmp_path / "people.csv"
+    source.write_text("id,name\n1,Alice\n2,Bob\n", encoding="utf-8")
+
+    quality_store = MagicMock()
+
+    result = _build(tmp_path=tmp_path, source=source, quality_store=quality_store)
+
+    quality_records = [
+        call.args[0] for call in quality_store.insert_quality_check_run.call_args_list
+    ]
+    output_record = next(
+        record for record in quality_records if record["check_id"] == "test-post-silver-output"
+    )
+
+    silver_store = _silver_store(tmp_path)
+    data_paths = [path for path in result.staged_paths if path.suffix == ".csv"]
+    expected_paths = [silver_store.relative_path(path) for path in data_paths]
+
+    assert output_record["actual"]["output_files"] == expected_paths
+    assert str(tmp_path) not in str(output_record["actual"])

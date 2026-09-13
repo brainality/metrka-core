@@ -35,6 +35,11 @@ The core runner currently supplies these gate contexts:
     ``output_required``, ``output_files``, ``storage_zone``, and
     ``silver_staging_path``.
 
+For both post-layer gates, ``output_files`` contains
+:class:`~metrka_core.quality.models.QualityOutputFile` values. The local path
+is runtime-only and is used for filesystem checks. Quality evidence persists
+only ``workspace_relative_path``.
+
 These mappings document the built-in version-1.0 implementation. Custom quality
 check registration is not a public extension contract in version 1.0; a future
 extension API should replace the mappings with typed, gate-specific contexts.
