@@ -9,6 +9,8 @@ modules remain implementation details unless they are listed in
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-19
+
 ### Added
 
 - Dedicated `metrka_operator` PostgreSQL role and `METRKA_OPERATIONS_DSN` for
@@ -86,4 +88,6 @@ First public release.
 - Production wheels must contain the generated `_build_provenance.json`
   package resource.
 
+[Unreleased]: https://github.com/brainality/metrka-core/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/brainality/metrka-core/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/brainality/metrka-core/releases/tag/v1.0.0
