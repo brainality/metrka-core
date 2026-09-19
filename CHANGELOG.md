@@ -11,6 +11,8 @@ modules remain implementation details unless they are listed in
 
 ### Added
 
+- Dedicated `metrka_operator` PostgreSQL role and `METRKA_OPERATIONS_DSN` for
+  least-privilege governance, publication, and reconciliation commands.
 - Preserve immutable source-capture and asset metadata when an existing
   capture is replayed in backfill mode.
 - Public `create_workspace_location_resolver()` factory for applications that
@@ -22,6 +24,12 @@ modules remain implementation details unless they are listed in
 - Public `ContractSnapshotReader` and `create_contract_snapshot_reader()` for
   safely reading immutable contract snapshot JSON below a resolved workspace
   data root.
+
+### Changed
+
+- Silver governance and publication reconciliation commands now require
+  `METRKA_OPERATIONS_DSN`; `METRKA_MIGRATION_DSN` is reserved for schema
+  migrations.
 
 ### Fixed
 

@@ -28,9 +28,7 @@ def _patch_session(
     session_manager.__exit__.return_value = False
     session_factory = MagicMock(return_value=session_manager)
 
-    monkeypatch.setattr(module, "resolve_migration_conninfo", lambda: "test-connection")
-    monkeypatch.setattr(module, "resolve_migration_owner_role", lambda: "test-owner")
-    monkeypatch.setattr(module, "resolve_metadata_conninfo", lambda: "test-metadata-connection")
+    monkeypatch.setattr(module, "resolve_operations_conninfo", lambda: "test-operations-connection")
     monkeypatch.setattr(module, "PostgresSession", session_factory)
 
     return session, session_factory
@@ -51,7 +49,7 @@ def test_engine_release_list_passes_bounded_limit(
 
     assert result == 0
     store.list_releases.assert_called_once_with(limit=expected_limit)
-    session_factory.assert_called_once_with("test-metadata-connection")
+    session_factory.assert_called_once_with("test-operations-connection")
 
 
 @pytest.mark.parametrize("limit", ["0", "-1", "1001", "not-a-number"])
@@ -84,7 +82,7 @@ def test_engine_approval_uses_injected_clock(monkeypatch: pytest.MonkeyPatch) ->
         approved_at=FIXED_NOW,
     )
     assert session is not None
-    session_factory.assert_called_once_with("test-connection", assume_role="test-owner")
+    session_factory.assert_called_once_with("test-operations-connection")
 
 
 def test_engine_rejection_uses_injected_clock(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -116,7 +114,7 @@ def test_engine_rejection_uses_injected_clock(monkeypatch: pytest.MonkeyPatch) -
         rejection_reason="Engine release needs review.",
         rejected_at=FIXED_NOW,
     )
-    session_factory.assert_called_once_with("test-connection", assume_role="test-owner")
+    session_factory.assert_called_once_with("test-operations-connection")
 
 
 def test_publication_candidate_approval_uses_injected_clock(
@@ -143,7 +141,7 @@ def test_publication_candidate_approval_uses_injected_clock(
     store.approve.assert_called_once_with(
         candidate_id="candidate-1", approved_by="reviewer@example.test", approved_at=FIXED_NOW
     )
-    session_factory.assert_called_once_with("test-connection", assume_role="test-owner")
+    session_factory.assert_called_once_with("test-operations-connection")
 
 
 def test_publication_candidate_rejection_uses_injected_clock(
@@ -181,4 +179,4 @@ def test_publication_candidate_rejection_uses_injected_clock(
         rejection_reason="Publication requires correction.",
         rejected_at=FIXED_NOW,
     )
-    session_factory.assert_called_once_with("test-connection", assume_role="test-owner")
+    session_factory.assert_called_once_with("test-operations-connection")

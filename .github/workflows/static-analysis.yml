@@ -132,6 +132,12 @@ jobs:
         port=5432
         user=metrka_migrator
         password=metrka_migrator_ci
+      METRKA_OPERATIONS_DSN: >-
+        dbname=metrka_migration_test
+        host=127.0.0.1
+        port=5432
+        user=metrka_operator
+        password=metrka_operator_ci
       METRKA_MIGRATION_TEST_DSN: >-
         dbname=metrka_migration_test
         host=127.0.0.1
@@ -168,6 +174,12 @@ jobs:
             --username postgres \
             --dbname metrka_migration_test \
             --command "ALTER ROLE metrka_migrator PASSWORD 'metrka_migrator_ci'"
+          psql \
+            --host 127.0.0.1 \
+            --port 5432 \
+            --username postgres \
+            --dbname metrka_migration_test \
+            --command "ALTER ROLE metrka_operator PASSWORD 'metrka_operator_ci'"
 
       - name: Apply migrations twice
         run: |

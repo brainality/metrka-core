@@ -142,8 +142,28 @@ $env:METRKA_MIGRATION_DSN = "postgresql://migration-role:<password>@localhost/me
 python -m metrka_core.metadata.migrations upgrade head
 
 $env:METRKA_METADATA_DSN = "postgresql://runtime-role:<password>@localhost/metrka"
+$env:METRKA_OPERATIONS_DSN = "postgresql://operator-role:<password>@localhost/metrka"
 $env:METRKA_WORKSPACES_CONFIG_PATH = "C:\metrka\workspaces.local.yaml"
 ```
+
+### PostgreSQL roles
+
+Metrka separates database access by responsibility. A fresh database must have
+these roles before migrations are applied:
+
+| Role | Used for | Connection setting |
+| --- | --- | --- |
+| `metrka_owner` | Owns the database schemas and objects. It cannot log in directly. | None |
+| `metrka_migrator` | Applies Alembic migrations by assuming `metrka_owner`. It is not used by pipelines or operator commands. | `METRKA_MIGRATION_DSN` |
+| `metrka_operator` | Reviews engine releases, approves or rejects publication candidates, publishes approved candidates, and runs publication reconciliation. It can read metadata and write only the governance/publication records required by those commands. | `METRKA_OPERATIONS_DSN` |
+| `metrka_etl` | Runs pipelines and writes normal runtime metadata. | `METRKA_METADATA_DSN` |
+| `metrka_web` | Reads published catalog metadata for the Catalog API. | The Catalog API `DATABASE_URL` |
+
+Create the roles once as a PostgreSQL administrator with
+`src/metrka_core/metadata/migrations/bootstrap/provision_metadata_roles.sql`,
+assign separate passwords to the four login roles, and then apply migrations.
+`metrka_migrator` is the only login role that belongs to `metrka_owner`;
+`metrka_operator`, `metrka_etl`, and `metrka_web` never inherit owner access.
 
 Create and register a first HTTP workspace when no dataset checkout exists yet:
 

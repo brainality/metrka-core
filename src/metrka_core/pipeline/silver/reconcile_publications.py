@@ -17,12 +17,12 @@ from metrka_core.catalog.postgres_publication_projection_store import (
 from metrka_core.catalog.postgres_publication_store import PostgresDatasetPublicationStore
 from metrka_core.lineage.transformation.postgres_store import PostgresTransformationImpactStore
 from metrka_core.metadata.postgres import PostgresSession
+from metrka_core.operations.database_config import resolve_operations_conninfo
 from metrka_core.pipeline.composition.workspace_locations import (
     WORKSPACES_CONFIG_ENVIRONMENT_VARIABLE,
     build_workspace_location_resolver,
 )
 from metrka_core.pipeline.config import resolve_runtime_environment
-from metrka_core.pipeline.database_config import resolve_metadata_conninfo
 from metrka_core.pipeline.runtime_services import Clock, SystemClock
 from metrka_core.pipeline.silver.postgres_build_store import PostgresSilverBuildStore
 from metrka_core.pipeline.silver.publication_asset_integrity import (
@@ -171,7 +171,7 @@ def main(
     print(f"Workspace: {args.workspace}")
     print(f"Grace period: {args.grace_hours:g} hours")
 
-    postgres_conninfo = resolve_metadata_conninfo()
+    postgres_conninfo = resolve_operations_conninfo()
 
     exit_code = 0
 

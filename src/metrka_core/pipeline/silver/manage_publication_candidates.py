@@ -18,17 +18,13 @@ from metrka_core.catalog.postgres_publication_projection_store import (
 )
 from metrka_core.catalog.postgres_publication_store import PostgresDatasetPublicationStore
 from metrka_core.catalog.publication_ids import UuidPublicationIdGenerator
-from metrka_core.metadata.migrations.config import (
-    resolve_migration_conninfo,
-    resolve_migration_owner_role,
-)
 from metrka_core.metadata.postgres import PostgresSession
+from metrka_core.operations.database_config import resolve_operations_conninfo
 from metrka_core.pipeline.composition.workspace_locations import (
     WORKSPACES_CONFIG_ENVIRONMENT_VARIABLE,
     build_workspace_location_resolver,
 )
 from metrka_core.pipeline.config import resolve_runtime_environment
-from metrka_core.pipeline.database_config import resolve_metadata_conninfo
 from metrka_core.pipeline.runtime_services import Clock, SystemClock
 from metrka_core.pipeline.silver.approved_publication_unit_of_work import ApprovedPublicationCommand
 from metrka_core.pipeline.silver.postgres_approved_publication_unit_of_work import (
@@ -105,14 +101,7 @@ def main(
 
     resolved_clock = clock if clock is not None else SystemClock()
 
-    if args.command == "list":
-        session_context = PostgresSession(resolve_metadata_conninfo())
-    else:
-        session_context = PostgresSession(
-            resolve_migration_conninfo(), assume_role=resolve_migration_owner_role()
-        )
-
-    with session_context as session:
+    with PostgresSession(resolve_operations_conninfo()) as session:
         store = PostgresDatasetPublicationCandidateStore(session)
 
         if args.command == "list":
