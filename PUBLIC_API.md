@@ -389,9 +389,11 @@ metrka operations reconcile-publications --workspace example --dataset-id exampl
 ```
 
 Run `metrka operations --help` or the nested command's `--help` for the full
-options. Commands that change the metadata schema or governance decisions use
-the privileged connection selected by `METRKA_MIGRATION_DSN`. Read-only
-commands use the normal metadata connection configuration.
+options. The metadata migration command uses the privileged connection selected
+by `METRKA_MIGRATION_DSN`. Engine-release decisions, publication-candidate
+commands, and publication reconciliation use the dedicated least-privilege
+operator connection selected by `METRKA_OPERATIONS_DSN`. This separation keeps
+governance workflows outside the schema-owner security boundary.
 
 The command paths above are stable. Their implementation modules remain
 internal and may move; external automation must not invoke

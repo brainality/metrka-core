@@ -9,6 +9,7 @@ from metrka_core.metadata.postgres import PostgresSession
 from metrka_core.metadata.schema_compatibility import inspect_metadata_schema
 
 TEST_DSN = os.environ.get("METRKA_MIGRATION_TEST_DSN")
+OPERATIONS_DSN = os.environ.get("METRKA_OPERATIONS_DSN")
 EXPECTED_OWNER = os.environ.get("METRKA_MIGRATION_OWNER_ROLE", "metrka_owner")
 
 pytestmark = [
@@ -177,6 +178,183 @@ def test_database_and_application_schemas_have_one_owner() -> None:
         ("meta", EXPECTED_OWNER),
         ("quality", EXPECTED_OWNER),
     }
+
+
+def test_operator_role_is_login_without_owner_membership() -> None:
+    with psycopg.connect(_test_dsn()) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT
+                rolcanlogin,
+                rolsuper,
+                rolcreatedb,
+                rolcreaterole,
+                rolinherit
+            FROM pg_roles
+            WHERE rolname = 'metrka_operator'
+            """
+        )
+        attributes = cursor.fetchone()
+
+        cursor.execute(
+            """
+            SELECT pg_has_role(
+                'metrka_operator',
+                'metrka_owner',
+                'MEMBER'
+            )
+            """
+        )
+        owner_membership = cursor.fetchone()
+
+    assert attributes == (True, False, False, False, False)
+    assert owner_membership == (False,)
+
+
+@pytest.mark.skipif(not OPERATIONS_DSN, reason="METRKA_OPERATIONS_DSN is not configured")
+def test_operator_connection_can_read_but_cannot_assume_owner() -> None:
+    if OPERATIONS_DSN is None:
+        raise RuntimeError("Operator test DSN is missing")
+
+    with (
+        psycopg.connect(OPERATIONS_DSN, autocommit=True) as connection,
+        connection.cursor() as cursor,
+    ):
+        cursor.execute("SELECT current_user")
+        assert cursor.fetchone() == ("metrka_operator",)
+
+        cursor.execute("SELECT count(*) FROM catalog.dataset_publications")
+        publication_count = cursor.fetchone()
+        assert publication_count is not None
+        assert isinstance(publication_count[0], int)
+        assert publication_count[0] >= 0
+
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            cursor.execute("SET ROLE metrka_owner")
+
+
+def test_operator_role_has_read_access_and_only_governance_writes() -> None:
+    insert_tables = {
+        ("catalog", "dataset_publication_assets"),
+        ("catalog", "dataset_publication_projection_states"),
+        ("catalog", "dataset_publications"),
+        ("quality", "asset_integrity_batches"),
+        ("quality", "asset_integrity_results"),
+        ("quality", "publication_gate_attempts"),
+        ("quality", "publication_integrity_checks"),
+    }
+    update_tables = {
+        ("catalog", "dataset_publication_candidates"),
+        ("catalog", "dataset_publication_projection_states"),
+        ("catalog", "dataset_publications"),
+        ("meta", "silver_engine_releases"),
+    }
+
+    with psycopg.connect(_test_dsn()) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT
+                table_schema,
+                table_name,
+                has_table_privilege(
+                    'metrka_operator',
+                    format('%I.%I', table_schema, table_name),
+                    'SELECT'
+                ),
+                has_table_privilege(
+                    'metrka_operator',
+                    format('%I.%I', table_schema, table_name),
+                    'INSERT'
+                ),
+                has_table_privilege(
+                    'metrka_operator',
+                    format('%I.%I', table_schema, table_name),
+                    'UPDATE'
+                ),
+                has_table_privilege(
+                    'metrka_operator',
+                    format('%I.%I', table_schema, table_name),
+                    'DELETE'
+                )
+            FROM information_schema.tables
+            WHERE table_schema IN ('catalog', 'lineage', 'logs', 'meta', 'quality')
+              AND table_type = 'BASE TABLE'
+            ORDER BY table_schema, table_name
+            """
+        )
+        privileges = cursor.fetchall()
+
+        cursor.execute(
+            """
+            SELECT
+                schema_name,
+                has_schema_privilege(
+                    'metrka_operator',
+                    schema_name,
+                    'USAGE'
+                ),
+                has_schema_privilege(
+                    'metrka_operator',
+                    schema_name,
+                    'CREATE'
+                )
+            FROM unnest(ARRAY['catalog', 'lineage', 'logs', 'meta', 'quality'])
+                 AS application_schemas(schema_name)
+            ORDER BY schema_name
+            """
+        )
+        schema_privileges = cursor.fetchall()
+
+    assert len(privileges) == len(EXPECTED_TABLES)
+
+    for schema_name, table_name, can_select, can_insert, can_update, can_delete in privileges:
+        table = (str(schema_name), str(table_name))
+        assert can_select is True, table
+        assert can_insert is (table in insert_tables), table
+        assert can_update is (table in update_tables), table
+        assert can_delete is False, table
+
+    assert schema_privileges == [
+        ("catalog", True, False),
+        ("lineage", True, False),
+        ("logs", True, False),
+        ("meta", True, False),
+        ("quality", True, False),
+    ]
+
+
+def test_operator_role_has_only_required_sequence_access() -> None:
+    expected_sequences = {
+        ("quality", "asset_integrity_batches_integrity_batch_id_seq"),
+        ("quality", "publication_gate_attempts_gate_attempt_id_seq"),
+    }
+
+    with psycopg.connect(_test_dsn()) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT
+                namespace.nspname,
+                relation.relname,
+                has_sequence_privilege(
+                    'metrka_operator',
+                    format('%I.%I', namespace.nspname, relation.relname),
+                    'USAGE'
+                )
+            FROM pg_class AS relation
+            JOIN pg_namespace AS namespace
+              ON namespace.oid = relation.relnamespace
+            WHERE namespace.nspname IN ('catalog', 'lineage', 'logs', 'meta', 'quality')
+              AND relation.relkind = 'S'
+            ORDER BY namespace.nspname, relation.relname
+            """
+        )
+        privileges = cursor.fetchall()
+
+    assert {
+        (str(schema_name), str(sequence_name))
+        for schema_name, sequence_name, has_usage in privileges
+        if has_usage
+    } == expected_sequences
 
 
 def test_migrated_database_is_current() -> None:

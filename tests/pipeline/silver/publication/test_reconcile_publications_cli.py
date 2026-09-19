@@ -60,8 +60,11 @@ class _StaticWorkspaceResolver:
 
 
 class _FakePostgresSession:
+    opened_conninfos: list[str] = []
+
     def __init__(self, *, conninfo: str) -> None:
         self.conninfo = conninfo
+        self.opened_conninfos.append(conninfo)
 
     def __enter__(self) -> Self:
         return self
@@ -123,6 +126,7 @@ def _missing_asset_verification() -> PublicationIntegrityCheck:
 def _install_command_runtime(
     monkeypatch: pytest.MonkeyPatch, *, tmp_path: Path, report: SilverPublicationReconciliation
 ) -> tuple[Mock, dict[str, object]]:
+    _FakePostgresSession.opened_conninfos.clear()
     resolver = _StaticWorkspaceResolver(
         WorkspaceLocation.managed(
             workspace_name="demo",
@@ -142,7 +146,9 @@ def _install_command_runtime(
         return reconciler
 
     monkeypatch.setattr(command, "build_workspace_location_resolver", build_resolver)
-    monkeypatch.setattr(command, "resolve_metadata_conninfo", lambda: "postgresql://test")
+    monkeypatch.setattr(
+        command, "resolve_operations_conninfo", lambda: "postgresql://operator-test"
+    )
     monkeypatch.setattr(command, "PostgresSession", _FakePostgresSession)
     monkeypatch.setattr(command, "SilverPublicationReconciler", build_reconciler)
     return reconciler, composition
@@ -214,6 +220,7 @@ def test_successful_reconciliation_returns_zero_and_builds_focused_components(
     )
 
     assert exit_code == 0
+    assert _FakePostgresSession.opened_conninfos == ["postgresql://operator-test"]
     reconciler.reconcile.assert_called_once_with(
         dataset_id=DATASET_ID,
         delete_orphans=False,

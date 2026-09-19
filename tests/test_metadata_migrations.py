@@ -10,13 +10,14 @@ def _script() -> ScriptDirectory:
 
 
 def test_metadata_migrations_have_one_current_head() -> None:
-    assert _script().get_heads() == ["0002_contract_snapshot_immutable"]
+    assert _script().get_heads() == ["0003_operator_role"]
 
 
 def test_metadata_migrations_from_one_linear_history() -> None:
     revisions = list(_script().walk_revisions())
 
     assert [(revision.revision, revision.down_revision) for revision in revisions] == [
+        ("0003_operator_role", "0002_contract_snapshot_immutable"),
         ("0002_contract_snapshot_immutable", "0001_initial"),
         ("0001_initial", None),
     ]

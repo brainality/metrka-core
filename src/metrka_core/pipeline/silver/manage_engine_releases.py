@@ -5,12 +5,8 @@ from __future__ import annotations
 import argparse
 from collections.abc import Sequence
 
-from metrka_core.metadata.migrations.config import (
-    resolve_migration_conninfo,
-    resolve_migration_owner_role,
-)
 from metrka_core.metadata.postgres import PostgresSession
-from metrka_core.pipeline.database_config import resolve_metadata_conninfo
+from metrka_core.operations.database_config import resolve_operations_conninfo
 from metrka_core.pipeline.runtime_services import Clock, SystemClock
 from metrka_core.pipeline.silver.engine_store import (
     DEFAULT_ENGINE_RELEASE_LIST_LIMIT,
@@ -70,14 +66,7 @@ def main(
 
     resolved_clock = clock if clock is not None else SystemClock()
 
-    if args.command == "list":
-        session_context = PostgresSession(resolve_metadata_conninfo())
-    else:
-        session_context = PostgresSession(
-            resolve_migration_conninfo(), assume_role=resolve_migration_owner_role()
-        )
-
-    with session_context as session:
+    with PostgresSession(resolve_operations_conninfo()) as session:
         store = PostgresSilverEngineReleaseStore(session)
 
         if args.command == "list":
