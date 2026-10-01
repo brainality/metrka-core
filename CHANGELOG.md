@@ -9,6 +9,12 @@ modules remain implementation details unless they are listed in
 
 ## [Unreleased]
 
+### Added
+
+### Changed
+
+### Fixed
+
 ## [1.1.0] - 2026-09-19
 
 ### Added
