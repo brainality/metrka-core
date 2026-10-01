@@ -74,3 +74,4 @@ workspaces.local.yaml
 
 # Generated immediately before a production wheel build.
 src/metrka_core/_build_provenance.json
+/metrka-core.code-workspace
