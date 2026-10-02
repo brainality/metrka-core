@@ -59,40 +59,57 @@ def collect_landed_assets(
             raise ValueError("target_date must use YYYY-MM-DD format") from exc
 
     landed_assets: list[LandedAsset] = []
+    assigned_streams: dict[Path, str] = {}
 
     for stream_name, stream in source_config.streams.items():
+        landed_files: tuple[Path, ...]
+
         if match_mode == "exact":
             landed_file = source_config.find_landed_file(stream_name, target_dir)
+            landed_files = () if landed_file is None else (landed_file,)
         elif match_mode == "pattern":
-            landed_file = source_config.find_landed_file_by_pattern(stream_name, target_dir)
+            landed_files = source_config.find_landed_files_by_pattern(stream_name, target_dir)
         else:
             raise ValueError(f"Unsupported landing match mode: {match_mode}")
 
-        if landed_file is None:
-            logger.warning("No landed file found for stream %s in %s", stream_name, target_dir)
+        if not landed_files:
+            logger.warning("No landed files found for stream %s in %s", stream_name, target_dir)
             continue
 
-        source_last_modified = None
+        for landed_file in landed_files:
+            resolved_landed_file = landed_file.resolve()
+            existing_stream = assigned_streams.get(resolved_landed_file)
 
-        if source_last_modified_from == "file_mtime":
-            source_last_modified = datetime.fromtimestamp(landed_file.stat().st_mtime, tz=UTC)
+            if existing_stream is not None:
+                raise RuntimeError(
+                    f"Landed file {landed_file} matches multiple streams: "
+                    f"{existing_stream}, {stream_name}"
+                )
 
-        elif source_last_modified_from == "target_date":
-            if stream.artifact_role == "data":
-                source_last_modified = target_date_modified
-            else:
+            assigned_streams[resolved_landed_file] = stream_name
+            source_last_modified = None
+
+            if source_last_modified_from == "file_mtime":
                 source_last_modified = datetime.fromtimestamp(landed_file.stat().st_mtime, tz=UTC)
 
-        landed_assets.append(
-            LandedAsset(
-                stream_name=stream_name,
-                path=landed_file,
-                source_capture_id=source_capture_id,
-                source_url=source_url,
-                artifact_role=stream.artifact_role,
-                source_last_modified=source_last_modified,
+            elif source_last_modified_from == "target_date":
+                if stream.artifact_role == "data":
+                    source_last_modified = target_date_modified
+                else:
+                    source_last_modified = datetime.fromtimestamp(
+                        landed_file.stat().st_mtime, tz=UTC
+                    )
+
+            landed_assets.append(
+                LandedAsset(
+                    stream_name=stream_name,
+                    path=landed_file,
+                    source_capture_id=source_capture_id,
+                    source_url=source_url,
+                    artifact_role=stream.artifact_role,
+                    source_last_modified=source_last_modified,
+                )
             )
-        )
 
     logger.info("Collected %d landed assets from %s", len(landed_assets), target_dir)
 

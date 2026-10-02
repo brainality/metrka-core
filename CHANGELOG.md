@@ -12,6 +12,8 @@ modules remain implementation details unless they are listed in
 ### Added
 
 - Added a reusable XLSX package integrity check for landed source files.
+- Allow one source-capture stream to collect multiple landed files matched by
+  a filename pattern.
 
 ### Changed
 

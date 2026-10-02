@@ -10,7 +10,7 @@ import pytest
 
 from metrka_core.datasets.source_config import SourceConfig, StreamConfig
 from metrka_core.pipeline.acquisition.dependencies import AcquisitionDeps
-from metrka_core.pipeline.acquisition.landing import acquire_assets
+from metrka_core.pipeline.acquisition.landing import acquire_assets, collect_landed_assets
 from metrka_core.pipeline.acquisition.models import (
     SourceCapture,
     SourceCaptureAssetReceipt,
@@ -155,3 +155,54 @@ def test_legacy_backfill_still_uses_configured_metadata(tmp_path: Path) -> None:
     assert result.landed_assets[0].source_url == "manual_upload"
     assert result.landed_assets[0].source_last_modified == datetime(2026, 9, 5, tzinfo=UTC)
     landing_store.read_receipt.assert_not_called()
+
+
+def test_pattern_backfill_collects_multiple_files_for_one_stream(tmp_path: Path) -> None:
+    source_config = SourceConfig(
+        workspace_name="fl_ahca_adult_substance_abuse_beds",
+        streams={"county": StreamConfig(name="county", official_filename="cid0321__*.xlsx")},
+    )
+
+    filenames = (
+        "cid0321__single-year__default__all__2025.xlsx",
+        "cid0321__single-year__default__all__2002.xlsx",
+        "cid0321__single-year__female__all__2025.xlsx",
+    )
+
+    for filename in filenames:
+        (tmp_path / filename).write_bytes(b"xlsx")
+
+    (tmp_path / "unrelated.xlsx").write_bytes(b"xlsx")
+
+    assets = collect_landed_assets(
+        source_config=source_config,
+        target_dir=tmp_path,
+        source_capture_id=CAPTURE_ID,
+        match_mode="pattern",
+    )
+
+    assert [asset.path.name for asset in assets] == sorted(filenames)
+    assert {asset.stream_name for asset in assets} == {"county"}
+
+
+def test_pattern_backfill_rejects_file_matching_multiple_streams(tmp_path: Path) -> None:
+    source_config = SourceConfig(
+        workspace_name="fl_ahca_adult_substance_abuse_beds",
+        streams={
+            "county": StreamConfig(name="county", official_filename="cid0321__*.xlsx"),
+            "default_group": StreamConfig(
+                name="default_group", official_filename="cid0321__single-year__default__*.xlsx"
+            ),
+        },
+    )
+
+    filename = "cid0321__single-year__default__all__2025.xlsx"
+    (tmp_path / filename).write_bytes(b"xlsx")
+
+    with pytest.raises(RuntimeError, match="matches multiple streams"):
+        collect_landed_assets(
+            source_config=source_config,
+            target_dir=tmp_path,
+            source_capture_id=CAPTURE_ID,
+            match_mode="pattern",
+        )
