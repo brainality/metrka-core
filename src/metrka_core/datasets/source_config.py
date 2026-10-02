@@ -53,17 +53,12 @@ class SourceConfig:
 
         return matches[0] if matches else None
 
-    def find_landed_file_by_pattern(self, stream_name: str, landing_dir: Path) -> Path | None:
-        """Locate multiple files in the landing zone matching the stream filename pattern."""
+    def find_landed_files_by_pattern(self, stream_name: str, landing_dir: Path) -> tuple[Path, ...]:
+        """Locate all landed files matching the stream filename pattern."""
         stream = self.streams[stream_name]
         pattern = stream.official_filename.casefold()
 
-        matches = sorted(path for path in landing_dir.glob(pattern) if path.is_file())
-
-        if len(matches) > 1:
-            raise RuntimeError(f"Multiple landed files found for stream {stream_name}: {matches}")
-
-        return matches[0] if matches else None
+        return tuple(sorted(path for path in landing_dir.glob(pattern) if path.is_file()))
 
 
 def load_source_config(path: str | Path, *, expected_ws_name: str | None = None) -> SourceConfig:
