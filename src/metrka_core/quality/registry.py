@@ -9,6 +9,7 @@ from metrka_core.quality.checks.bronze import bronze_extraction_completed
 from metrka_core.quality.checks.files import output_files_created
 from metrka_core.quality.checks.fingerprint import payload_fingerprint_recorded
 from metrka_core.quality.checks.table import expected_columns_present, has_data_rows
+from metrka_core.quality.checks.xlsx import xlsx_package_integrity
 from metrka_core.quality.checks.zip import zip_crc_valid
 from metrka_core.quality.models import QualityCheckInput, QualityCheckResult, QualityCheckSpec
 
@@ -66,6 +67,7 @@ def create_default_quality_registry() -> QualityRegistry:
 
     registry.register("file_size_min", file_size_min)
     registry.register("zip_crc_valid", zip_crc_valid)
+    registry.register("xlsx_package_integrity", xlsx_package_integrity)
     registry.register("sha256_recorded", sha256_recorded)
     registry.register("payload_fingerprint_recorded", payload_fingerprint_recorded)
 
