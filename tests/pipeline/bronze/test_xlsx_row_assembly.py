@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from metrka_core.pipeline.bronze.filename_metadata import (
     FilenameMetadataColumn,
@@ -101,3 +102,76 @@ def test_writes_one_combined_bronze_csv(tmp_path: Path) -> None:
 
     assert written["reporting_year"].tolist() == [2002, 2003]
     assert written["Count"].tolist() == [10, 12]
+
+
+def test_rejects_mismatched_xlsx_source_columns(tmp_path: Path) -> None:
+    file_2002 = tmp_path / "cid0314__single-year__default__all__2002.xlsx"
+    file_2003 = tmp_path / "cid0314__single-year__default__all__2003.xlsx"
+
+    pd.DataFrame([{"County": "Florida", "Count": 10}]).to_excel(file_2002, index=False)
+
+    pd.DataFrame([{"County": "Florida", "Rate": 1.2}]).to_excel(file_2003, index=False)
+
+    with pytest.raises(ValueError) as error:
+        assemble_xlsx_rows(
+            paths=(file_2002, file_2003),
+            filename_config=_filename_config(),
+            read_config=XlsxReadConfig(),
+        )
+
+    message = str(error.value)
+
+    assert "XLSX source columns do not match" in message
+    assert file_2002.name in message
+    assert file_2003.name in message
+    assert "missing=['Count']" in message
+    assert "extra=['Rate']" in message
+
+
+def test_rejects_reordered_xlsx_source_columns(tmp_path: Path) -> None:
+    file_2002 = tmp_path / "cid0314__single-year__default__all__2002.xlsx"
+    file_2003 = tmp_path / "cid0314__single-year__default__all__2003.xlsx"
+
+    pd.DataFrame([{"County": "Florida", "Count": 10}], columns=["County", "Count"]).to_excel(
+        file_2002, index=False
+    )
+
+    pd.DataFrame([{"Count": 12, "County": "Florida"}], columns=["Count", "County"]).to_excel(
+        file_2003, index=False
+    )
+
+    with pytest.raises(ValueError) as error:
+        assemble_xlsx_rows(
+            paths=(file_2002, file_2003),
+            filename_config=_filename_config(),
+            read_config=XlsxReadConfig(),
+        )
+
+    message = str(error.value)
+
+    assert "XLSX source columns do not match" in message
+    assert file_2002.name in message
+    assert file_2003.name in message
+    assert "missing=[]" in message
+    assert "extra=[]" in message
+    assert "reordered=True" in message
+
+
+def test_does_not_write_csv_when_xlsx_columns_do_not_match(tmp_path: Path) -> None:
+    file_2002 = tmp_path / "cid0314__single-year__default__all__2002.xlsx"
+    file_2003 = tmp_path / "cid0314__single-year__default__all__2003.xlsx"
+    output_path = tmp_path / "bronze" / "combined.csv"
+
+    pd.DataFrame([{"County": "Florida", "Count": 10}]).to_excel(file_2002, index=False)
+
+    pd.DataFrame([{"County": "Florida", "Rate": 1.2}]).to_excel(file_2003, index=False)
+
+    with pytest.raises(ValueError, match="XLSX source columns do not match"):
+        write_assembled_xlsx_csv(
+            paths=(file_2002, file_2003),
+            output_path=output_path,
+            filename_config=_filename_config(),
+            read_config=XlsxReadConfig(),
+        )
+
+    assert not output_path.exists()
