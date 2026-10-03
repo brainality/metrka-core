@@ -24,6 +24,9 @@ modules remain implementation details unless they are listed in
 
 ### Fixed
 
+- Reject XLSX Bronze batches when source column names or their order differ,
+  instead of silently combining incompatible columns.
+
 ## [1.1.0] - 2026-09-19
 
 ### Added

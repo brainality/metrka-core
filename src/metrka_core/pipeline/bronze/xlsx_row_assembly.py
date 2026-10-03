@@ -74,11 +74,39 @@ def assemble_xlsx_rows(
         raise ValueError("No XLSX files were provided for row assembly")
 
     frames: list[pd.DataFrame] = []
+    reference_path: Path | None = None
+    reference_columns: tuple[str, ...] | None = None
 
     for path in indexed_paths.values():
         frame = pd.read_excel(
             path, sheet_name=read_config.sheet_name, header=read_config.header_row
         )
+
+        source_columns = tuple(str(column) for column in frame.columns)
+
+        if reference_columns is None:
+            reference_path = path
+            reference_columns = source_columns
+        elif source_columns != reference_columns:
+            if reference_path is None:
+                raise RuntimeError("XLSX reference path was not initialized")
+
+            missing_columns = [
+                column for column in reference_columns if column not in source_columns
+            ]
+            extra_columns = [column for column in source_columns if column not in reference_columns]
+            reordered = not missing_columns and not extra_columns
+
+            raise ValueError(
+                "XLSX source columns do not match: "
+                f"reference={reference_path.name}; "
+                f"actual={path.name}; "
+                f"expected={list(reference_columns)!r}; "
+                f"actual_columns={list(source_columns)!r}; "
+                f"missing={missing_columns!r}; "
+                f"extra={extra_columns!r}; "
+                f"reordered={reordered}"
+            )
 
         metadata = extract_filename_metadata(path.name, filename_config)
 
