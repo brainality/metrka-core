@@ -14,8 +14,13 @@ modules remain implementation details unless they are listed in
 - Added a reusable XLSX package integrity check for landed source files.
 - Allow one source-capture stream to collect multiple landed files matched by
   a filename pattern.
+- Allow Bronze ingestion to assemble multiple XLSX files from one stream into
+  one deterministic CSV, with configurable metadata extracted from filenames.
 
 ### Changed
+
+- Identify source-capture asset bindings by capture, stream, and relative path,
+  allowing multiple physical source files to produce one Bronze dataset file.
 
 ### Fixed
 

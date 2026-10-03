@@ -174,10 +174,10 @@ class SourceCaptureReceipt:
         if self.captured_at.utcoffset() is None:
             raise ValueError("SourceCaptureReceipt.captured_at must be timezone-aware")
 
-        stream_names = [asset.stream_name for asset in self.assets]
+        asset_identities = [(asset.stream_name, asset.relative_path) for asset in self.assets]
 
-        if len(stream_names) != len(set(stream_names)):
-            raise ValueError("SourceCaptureReceipt.assets must not repeat stream names")
+        if len(asset_identities) != len(set(asset_identities)):
+            raise ValueError("SourceCaptureReceipt.assets must not repeat stream and relative path")
 
     @classmethod
     def from_dict(cls, payload: object) -> SourceCaptureReceipt:

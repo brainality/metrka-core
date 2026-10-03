@@ -12,6 +12,16 @@ from typing import Any, cast
 import yaml
 
 from metrka_core.metadata.artifact import VALID_ARTIFACT_ROLES, ArtifactRole
+from metrka_core.pipeline.bronze.filename_metadata import (
+    FilenameMetadataColumn,
+    FilenameMetadataConfig,
+    FilenameMetadataValueType,
+)
+from metrka_core.pipeline.bronze.xlsx_row_assembly import (
+    BronzeAssemblyConfig,
+    BronzeAssemblyStrategy,
+    XlsxReadConfig,
+)
 
 
 @dataclass(frozen=True)
@@ -22,6 +32,8 @@ class StreamConfig:
     official_filename: str
     yaml_contract_name: str | None = None
     artifact_role: ArtifactRole = "data"
+    filename_metadata: FilenameMetadataConfig | None = None
+    bronze_assembly: BronzeAssemblyConfig | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
 
@@ -59,6 +71,153 @@ class SourceConfig:
         pattern = stream.official_filename.casefold()
 
         return tuple(sorted(path for path in landing_dir.glob(pattern) if path.is_file()))
+
+
+def _load_filename_metadata(
+    raw: Any, *, path: Path, stream_name: str
+) -> FilenameMetadataConfig | None:
+    if raw is None:
+        return None
+
+    if not isinstance(raw, dict):
+        raise RuntimeError(f"{path}: stream {stream_name} filename_metadata must be a mapping")
+
+    regex = raw.get("regex")
+
+    if not isinstance(regex, str) or not regex.strip():
+        raise RuntimeError(f"{path}: stream {stream_name} filename_metadata needs regex")
+
+    raw_columns = raw.get("columns")
+
+    if not isinstance(raw_columns, dict) or not raw_columns:
+        raise RuntimeError(f"{path}: stream {stream_name} filename_metadata needs columns")
+
+    columns: dict[str, FilenameMetadataColumn] = {}
+
+    for column_name, column_raw in raw_columns.items():
+        if not isinstance(column_name, str) or not column_name.strip():
+            raise RuntimeError(
+                f"{path}: stream {stream_name} filename metadata "
+                "column names must be non-empty strings"
+            )
+
+        if not isinstance(column_raw, dict):
+            raise RuntimeError(
+                f"{path}: stream {stream_name} filename metadata "
+                f"column {column_name} must be a mapping"
+            )
+
+        from_group = column_raw.get("from_group")
+        value_type = column_raw.get("type", "string")
+        raw_null_values = column_raw.get("null_values", [])
+
+        if not isinstance(from_group, str) or not from_group.strip():
+            raise RuntimeError(
+                f"{path}: stream {stream_name} filename metadata "
+                f"column {column_name} needs from_group"
+            )
+
+        if value_type not in {"string", "integer"}:
+            raise RuntimeError(
+                f"{path}: stream {stream_name} filename metadata "
+                f"column {column_name} has invalid type: {value_type!r}"
+            )
+
+        if not isinstance(raw_null_values, list) or not all(
+            isinstance(value, str) for value in raw_null_values
+        ):
+            raise RuntimeError(
+                f"{path}: stream {stream_name} filename metadata "
+                f"column {column_name} null_values must be a list of strings"
+            )
+
+        columns[column_name] = FilenameMetadataColumn(
+            from_group=from_group,
+            value_type=cast(FilenameMetadataValueType, value_type),
+            null_values=tuple(raw_null_values),
+        )
+
+    raw_member_key = raw.get("member_key")
+
+    if not isinstance(raw_member_key, list) or not raw_member_key:
+        raise RuntimeError(f"{path}: stream {stream_name} filename_metadata needs member_key")
+
+    if not all(
+        isinstance(column_name, str) and column_name.strip() for column_name in raw_member_key
+    ):
+        raise RuntimeError(
+            f"{path}: stream {stream_name} filename_metadata member_key must contain strings"
+        )
+
+    try:
+        return FilenameMetadataConfig(
+            regex=regex, columns=columns, member_key=tuple(raw_member_key)
+        )
+    except ValueError as error:
+        raise RuntimeError(
+            f"{path}: stream {stream_name} has invalid filename_metadata: {error}"
+        ) from error
+
+
+def _load_bronze_assembly(raw: Any, *, path: Path, stream_name: str) -> BronzeAssemblyConfig | None:
+    if raw is None:
+        return None
+
+    if not isinstance(raw, dict):
+        raise RuntimeError(f"{path}: stream {stream_name} bronze_assembly must be a mapping")
+
+    strategy = raw.get("strategy")
+
+    if strategy != "xlsx_rows":
+        raise RuntimeError(
+            f"{path}: stream {stream_name} has unsupported bronze assembly strategy: {strategy!r}"
+        )
+
+    output_filename = raw.get("output_filename")
+
+    if not isinstance(output_filename, str):
+        raise RuntimeError(f"{path}: stream {stream_name} bronze_assembly needs output_filename")
+
+    sheet_name = raw.get("sheet_name", 0)
+    header_row = raw.get("header_row", 0)
+    drop_empty_rows = raw.get("drop_fully_empty_rows", True)
+    drop_empty_columns = raw.get("drop_fully_empty_columns", True)
+
+    if isinstance(sheet_name, bool) or not isinstance(sheet_name, (str, int)):
+        raise RuntimeError(
+            f"{path}: stream {stream_name} bronze_assembly sheet_name must be a string or integer"
+        )
+
+    if isinstance(header_row, bool) or not isinstance(header_row, int):
+        raise RuntimeError(
+            f"{path}: stream {stream_name} bronze_assembly header_row must be an integer"
+        )
+
+    if not isinstance(drop_empty_rows, bool):
+        raise RuntimeError(
+            f"{path}: stream {stream_name} bronze_assembly drop_fully_empty_rows must be boolean"
+        )
+
+    if not isinstance(drop_empty_columns, bool):
+        raise RuntimeError(
+            f"{path}: stream {stream_name} bronze_assembly drop_fully_empty_columns must be boolean"
+        )
+
+    try:
+        return BronzeAssemblyConfig(
+            strategy=cast(BronzeAssemblyStrategy, strategy),
+            output_filename=output_filename,
+            read_config=XlsxReadConfig(
+                sheet_name=sheet_name,
+                header_row=header_row,
+                drop_fully_empty_rows=drop_empty_rows,
+                drop_fully_empty_columns=drop_empty_columns,
+            ),
+        )
+    except ValueError as error:
+        raise RuntimeError(
+            f"{path}: stream {stream_name} has invalid bronze_assembly: {error}"
+        ) from error
 
 
 def load_source_config(path: str | Path, *, expected_ws_name: str | None = None) -> SourceConfig:
@@ -112,7 +271,21 @@ def load_source_config(path: str | Path, *, expected_ws_name: str | None = None)
 
         artifact_role = cast(ArtifactRole, artifact_role_raw)
 
-        known_keys = {"official_filename", "yaml_contract_name", "artifact_role"}
+        filename_metadata = _load_filename_metadata(
+            stream_raw.get("filename_metadata"), path=path, stream_name=stream_name
+        )
+
+        bronze_assembly = _load_bronze_assembly(
+            stream_raw.get("bronze_assembly"), path=path, stream_name=stream_name
+        )
+
+        known_keys = {
+            "official_filename",
+            "yaml_contract_name",
+            "artifact_role",
+            "filename_metadata",
+            "bronze_assembly",
+        }
         extra = {key: value for key, value in stream_raw.items() if key not in known_keys}
 
         streams[stream_name] = StreamConfig(
@@ -120,6 +293,8 @@ def load_source_config(path: str | Path, *, expected_ws_name: str | None = None)
             official_filename=official_filename,
             yaml_contract_name=stream_raw.get("yaml_contract_name"),
             artifact_role=artifact_role,
+            filename_metadata=filename_metadata,
+            bronze_assembly=bronze_assembly,
             extra=extra,
         )
 

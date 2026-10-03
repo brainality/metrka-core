@@ -212,7 +212,8 @@ class PostgresSourceCaptureStore:
                     )
                     ON CONFLICT (
                         source_capture_id,
-                        stream_name
+                        stream_name,
+                        relative_path
                     )
                     DO NOTHING
                     """,
@@ -230,10 +231,11 @@ class PostgresSourceCaptureStore:
                         artifact_role,
                         source_last_modified
                     FROM meta.source_capture_assets
-                    WHERE source_capture_id = %s
+                      WHERE source_capture_id = %s
                       AND stream_name = %s
+                      AND relative_path = %s
                     """,
-                    (normalized_capture_id, asset.stream_name),
+                    (normalized_capture_id, asset.stream_name, asset.relative_path),
                 )
 
                 row = cursor.fetchone()
@@ -243,7 +245,8 @@ class PostgresSourceCaptureStore:
                         "Source capture asset was not "
                         "persisted: "
                         f"{normalized_capture_id}/"
-                        f"{asset.stream_name}"
+                        f"{asset.stream_name}/"
+                        f"{asset.relative_path}"
                     )
 
                 if _asset_identity(row) != expected_identity:
@@ -251,5 +254,6 @@ class PostgresSourceCaptureStore:
                         "Source capture asset already exists "
                         "with different immutable metadata: "
                         f"{normalized_capture_id}/"
-                        f"{asset.stream_name}"
+                        f"{asset.stream_name}/"
+                        f"{asset.relative_path}"
                     )

@@ -14,6 +14,7 @@ from metrka_core.pipeline.action_models import (
     ArtifactRef,
 )
 from metrka_core.pipeline.action_runtime import ActionRuntime
+from metrka_core.pipeline.models import LandedAsset
 
 if TYPE_CHECKING:
     from metrka_core.pipeline.acquisition.source_capture_store import SourceCaptureStore
@@ -68,38 +69,42 @@ def ingest_bronze_action(
     if source_capture is None:
         raise RuntimeError("bronze.ingest requires a source capture")
 
-    landed_assets_by_stream = {asset.stream_name: asset for asset in state.landed_assets}
+    landed_assets_by_stream: dict[str, list[LandedAsset]] = {}
+
+    for landed_asset in state.landed_assets:
+        landed_assets_by_stream.setdefault(landed_asset.stream_name, []).append(landed_asset)
 
     bindings: list[SourceCaptureAssetBinding] = []
 
     for stream_name, ingest_result in bronze_batch.by_stream.items():
-        landed_asset = landed_assets_by_stream.get(stream_name)
+        stream_assets = landed_assets_by_stream.get(stream_name)
 
-        if landed_asset is None:
+        if not stream_assets:
             raise RuntimeError(f"Bronze result has no corresponding landed asset: {stream_name}")
 
-        try:
-            relative_path = (
-                landed_asset.path.resolve()
-                .relative_to(source_capture.directory.resolve())
-                .as_posix()
-            )
-        except ValueError as exc:
-            raise RuntimeError(
-                f"Landed asset is outside its source capture directory: {landed_asset.path}"
-            ) from exc
+        for landed_asset in stream_assets:
+            try:
+                relative_path = (
+                    landed_asset.path.resolve()
+                    .relative_to(source_capture.directory.resolve())
+                    .as_posix()
+                )
+            except ValueError as error:
+                raise RuntimeError(
+                    f"Landed asset is outside its source capture directory: {landed_asset.path}"
+                ) from error
 
-        bindings.append(
-            SourceCaptureAssetBinding(
-                stream_name=stream_name,
-                dataset_id=ingest_result.dataset_id,
-                dataset_file_id=ingest_result.dataset_file_id,
-                relative_path=relative_path,
-                source_url=landed_asset.source_url,
-                artifact_role=landed_asset.artifact_role,
-                source_last_modified=landed_asset.source_last_modified,
+            bindings.append(
+                SourceCaptureAssetBinding(
+                    stream_name=stream_name,
+                    dataset_id=ingest_result.dataset_id,
+                    dataset_file_id=(ingest_result.dataset_file_id),
+                    relative_path=relative_path,
+                    source_url=landed_asset.source_url,
+                    artifact_role=landed_asset.artifact_role,
+                    source_last_modified=(landed_asset.source_last_modified),
+                )
             )
-        )
 
     deps.source_captures.bind_assets(
         source_capture_id=source_capture.source_capture_id, assets=tuple(bindings)
