@@ -1,4 +1,5 @@
 from pathlib import Path
+
 import pandas as pd
 
 from metrka_core.pipeline.bronze.filename_metadata import (
@@ -22,58 +23,29 @@ def _filename_config() -> FilenameMetadataConfig:
             r"(?P<year>[0-9]{4})\.xlsx$"
         ),
         columns={
-            "cid_id": FilenameMetadataColumn(
-                from_group="cid_id",
-                value_type="string",
-            ),
+            "cid_id": FilenameMetadataColumn(from_group="cid_id", value_type="string"),
             "year_breakdown": FilenameMetadataColumn(
-                from_group="year_breakdown",
-                value_type="string",
+                from_group="year_breakdown", value_type="string"
             ),
             "group_dimension": FilenameMetadataColumn(
-                from_group="group_dimension",
-                value_type="string",
-                null_values=("default",),
+                from_group="group_dimension", value_type="string", null_values=("default",)
             ),
             "group_value": FilenameMetadataColumn(
-                from_group="group_value",
-                value_type="string",
-                null_values=("all",),
+                from_group="group_value", value_type="string", null_values=("all",)
             ),
-            "reporting_year": FilenameMetadataColumn(
-                from_group="year",
-                value_type="integer",
-            ),
+            "reporting_year": FilenameMetadataColumn(from_group="year", value_type="integer"),
         },
-        member_key=(
-            "cid_id",
-            "year_breakdown",
-            "group_dimension",
-            "group_value",
-            "reporting_year",
-        ),
+        member_key=("cid_id", "year_breakdown", "group_dimension", "group_value", "reporting_year"),
     )
 
 
-def test_assembles_xlsx_rows_with_filename_metadata(
-    tmp_path: Path,
-) -> None:
-    file_2002 = (
-        tmp_path
-        / "cid0314__single-year__default__all__2002.xlsx"
-    )
-    file_2003 = (
-        tmp_path
-        / "cid0314__single-year__sex__female__2003.xlsx"
-    )
+def test_assembles_xlsx_rows_with_filename_metadata(tmp_path: Path) -> None:
+    file_2002 = tmp_path / "cid0314__single-year__default__all__2002.xlsx"
+    file_2003 = tmp_path / "cid0314__single-year__sex__female__2003.xlsx"
 
-    pd.DataFrame(
-        [{"County": "Florida", "Count": 10}]
-    ).to_excel(file_2002, index=False)
+    pd.DataFrame([{"County": "Florida", "Count": 10}]).to_excel(file_2002, index=False)
 
-    pd.DataFrame(
-        [{"County": "Florida", "Count": 12}]
-    ).to_excel(file_2003, index=False)
+    pd.DataFrame([{"County": "Florida", "Count": 12}]).to_excel(file_2003, index=False)
 
     result = assemble_xlsx_rows(
         paths=(file_2003, file_2002),
@@ -102,25 +74,14 @@ def test_assembles_xlsx_rows_with_filename_metadata(
         },
     ]
 
-def test_writes_one_combined_bronze_csv(
-    tmp_path: Path,
-) -> None:
-    file_2002 = (
-        tmp_path
-        / "cid0314__single-year__default__all__2002.xlsx"
-    )
-    file_2003 = (
-        tmp_path
-        / "cid0314__single-year__sex__female__2003.xlsx"
-    )
 
-    pd.DataFrame(
-        [{"County": "Florida", "Count": 10}]
-    ).to_excel(file_2002, index=False)
+def test_writes_one_combined_bronze_csv(tmp_path: Path) -> None:
+    file_2002 = tmp_path / "cid0314__single-year__default__all__2002.xlsx"
+    file_2003 = tmp_path / "cid0314__single-year__sex__female__2003.xlsx"
 
-    pd.DataFrame(
-        [{"County": "Florida", "Count": 12}]
-    ).to_excel(file_2003, index=False)
+    pd.DataFrame([{"County": "Florida", "Count": 10}]).to_excel(file_2002, index=False)
+
+    pd.DataFrame([{"County": "Florida", "Count": 12}]).to_excel(file_2003, index=False)
 
     output_path = tmp_path / "bronze" / "adult_substance_abuse_beds.csv"
 

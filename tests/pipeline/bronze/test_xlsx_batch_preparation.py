@@ -1,46 +1,25 @@
+from datetime import UTC, datetime
 from pathlib import Path
 
-from datetime import UTC, datetime
 import pandas as pd
 
 from metrka_core.pipeline.bronze.filename_metadata import (
     FilenameMetadataColumn,
     FilenameMetadataConfig,
 )
-from metrka_core.pipeline.bronze.xlsx_batch_preparation import (
-    prepare_xlsx_source_batch,
-)
-from metrka_core.pipeline.bronze.xlsx_row_assembly import (
-    BronzeAssemblyConfig,
-    XlsxReadConfig,
-)
+from metrka_core.pipeline.bronze.xlsx_batch_ingestion import build_xlsx_batch_marshaled_file
+from metrka_core.pipeline.bronze.xlsx_batch_preparation import prepare_xlsx_source_batch
+from metrka_core.pipeline.bronze.xlsx_row_assembly import BronzeAssemblyConfig, XlsxReadConfig
 from metrka_core.pipeline.models import LandedAsset
 
 
-from metrka_core.pipeline.bronze.xlsx_batch_ingestion import (
-    build_xlsx_batch_marshaled_file,
-)
+def test_prepares_one_bronze_batch_from_multiple_xlsx_files(tmp_path: Path) -> None:
+    first = tmp_path / "cid0321__single-year__default__all__2002.xlsx"
+    second = tmp_path / "cid0321__single-year__sex__female__2025.xlsx"
 
+    pd.DataFrame([{"County": "Florida", "Count": 10}]).to_excel(first, index=False)
 
-def test_prepares_one_bronze_batch_from_multiple_xlsx_files(
-    tmp_path: Path,
-) -> None:
-    first = (
-        tmp_path
-        / "cid0321__single-year__default__all__2002.xlsx"
-    )
-    second = (
-        tmp_path
-        / "cid0321__single-year__sex__female__2025.xlsx"
-    )
-
-    pd.DataFrame(
-        [{"County": "Florida", "Count": 10}]
-    ).to_excel(first, index=False)
-
-    pd.DataFrame(
-        [{"County": "Florida", "Count": 12}]
-    ).to_excel(second, index=False)
+    pd.DataFrame([{"County": "Florida", "Count": 12}]).to_excel(second, index=False)
 
     assets = (
         LandedAsset(
@@ -66,22 +45,14 @@ def test_prepares_one_bronze_batch_from_multiple_xlsx_files(
             r"(?P<year>[0-9]{4})\.xlsx$"
         ),
         columns={
-            "cid_id": FilenameMetadataColumn(
-                from_group="cid_id",
-                value_type="string",
-            ),
-            "reporting_year": FilenameMetadataColumn(
-                from_group="year",
-                value_type="integer",
-            ),
+            "cid_id": FilenameMetadataColumn(from_group="cid_id", value_type="string"),
+            "reporting_year": FilenameMetadataColumn(from_group="year", value_type="integer"),
         },
         member_key=("cid_id", "reporting_year"),
     )
 
     assembly_config = BronzeAssemblyConfig(
-        strategy="xlsx_rows",
-        output_filename="county.csv",
-        read_config=XlsxReadConfig(),
+        strategy="xlsx_rows", output_filename="county.csv", read_config=XlsxReadConfig()
     )
 
     result = prepare_xlsx_source_batch(
@@ -100,23 +71,12 @@ def test_prepares_one_bronze_batch_from_multiple_xlsx_files(
     assert result.output_path == tmp_path / "bronze-run" / "county.csv"
     assert result.output_path.is_file()
 
-    assert tuple(
-        member.filename
-        for member in result.fingerprint.members
-    ) == (
+    assert tuple(member.filename for member in result.fingerprint.members) == (
         "cid0321__single-year__default__all__2002.xlsx",
         "cid0321__single-year__sex__female__2025.xlsx",
     )
 
-
-    ingested_at = datetime(
-        2026,
-        10,
-        3,
-        12,
-        0,
-        tzinfo=UTC,
-    )
+    ingested_at = datetime(2026, 10, 3, 12, 0, tzinfo=UTC)
 
     marshaled_file = build_xlsx_batch_marshaled_file(
         prepared=result,
@@ -132,8 +92,7 @@ def test_prepares_one_bronze_batch_from_multiple_xlsx_files(
     assert marshaled_file.original_source_file_name == "county.csv"
     assert marshaled_file.source_hash == result.fingerprint.sha256
     assert marshaled_file.file_size == sum(
-        member.size_bytes
-        for member in result.fingerprint.members
+        member.size_bytes for member in result.fingerprint.members
     )
     assert marshaled_file.ingestion_timestamp == ingested_at
     assert marshaled_file.row_count_raw == 2

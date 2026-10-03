@@ -1,35 +1,24 @@
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-from datetime import UTC, datetime
 
 import pandas as pd
 
-from metrka_core.quality.registry import create_default_quality_registry
-from metrka_core.storage.bronze_store import LocalBronzeArtifactStore
-
 from metrka_core.datasets.source_config import SourceConfig, StreamConfig
+from metrka_core.pipeline.bronze.asset_ingestion import (
+    _group_landed_assets_by_stream,
+    ingest_landed_assets,
+)
 from metrka_core.pipeline.bronze.filename_metadata import (
     FilenameMetadataColumn,
     FilenameMetadataConfig,
 )
 from metrka_core.pipeline.bronze.models import BronzeIngestResult
-from metrka_core.pipeline.bronze.xlsx_row_assembly import (
-    BronzeAssemblyConfig,
-    XlsxReadConfig,
-)
-from metrka_core.pipeline.bronze.asset_ingestion import (
-    _group_landed_assets_by_stream,
-    ingest_landed_assets,
-)
-from metrka_core.quality.models import (
-    QualityCheckSpec,
-    QualityConfig,
-    QualityGate,
-    QualitySeverity,
-)
-
+from metrka_core.pipeline.bronze.xlsx_row_assembly import BronzeAssemblyConfig, XlsxReadConfig
 from metrka_core.pipeline.models import LandedAsset
-
+from metrka_core.quality.models import QualityCheckSpec, QualityConfig, QualityGate, QualitySeverity
+from metrka_core.quality.registry import create_default_quality_registry
+from metrka_core.storage.bronze_store import LocalBronzeArtifactStore
 
 
 def _asset(tmp_path: Path, filename: str) -> LandedAsset:
@@ -41,18 +30,10 @@ def _asset(tmp_path: Path, filename: str) -> LandedAsset:
     )
 
 
-def test_groups_multiple_landed_assets_into_one_stream_batch(
-    tmp_path: Path,
-) -> None:
+def test_groups_multiple_landed_assets_into_one_stream_batch(tmp_path: Path) -> None:
     assets = [
-        _asset(
-            tmp_path,
-            "cid0321__single-year__default__all__2025.xlsx",
-        ),
-        _asset(
-            tmp_path,
-            "cid0321__single-year__default__all__2002.xlsx",
-        ),
+        _asset(tmp_path, "cid0321__single-year__default__all__2025.xlsx"),
+        _asset(tmp_path, "cid0321__single-year__default__all__2002.xlsx"),
     ]
 
     grouped = _group_landed_assets_by_stream(assets)
@@ -63,12 +44,9 @@ def test_groups_multiple_landed_assets_into_one_stream_batch(
         "cid0321__single-year__default__all__2025.xlsx",
     ]
 
-def test_ingests_multiple_xlsx_assets_as_one_stream_batch(
-    tmp_path: Path,
-) -> None:
-    from metrka_core.pipeline.bronze.asset_ingestion import (
-        ingest_landed_assets,
-    )
+
+def test_ingests_multiple_xlsx_assets_as_one_stream_batch(tmp_path: Path) -> None:
+    from metrka_core.pipeline.bronze.asset_ingestion import ingest_landed_assets
 
     filename_metadata = FilenameMetadataConfig(
         regex=(
@@ -79,14 +57,8 @@ def test_ingests_multiple_xlsx_assets_as_one_stream_batch(
             r"(?P<year>[0-9]{4})\.xlsx$"
         ),
         columns={
-            "cid_id": FilenameMetadataColumn(
-                from_group="cid_id",
-                value_type="string",
-            ),
-            "reporting_year": FilenameMetadataColumn(
-                from_group="year",
-                value_type="integer",
-            ),
+            "cid_id": FilenameMetadataColumn(from_group="cid_id", value_type="string"),
+            "reporting_year": FilenameMetadataColumn(from_group="year", value_type="integer"),
         },
         member_key=("cid_id", "reporting_year"),
     )
@@ -99,9 +71,7 @@ def test_ingests_multiple_xlsx_assets_as_one_stream_batch(
                 official_filename="cid0321__*.xlsx",
                 filename_metadata=filename_metadata,
                 bronze_assembly=BronzeAssemblyConfig(
-                    strategy="xlsx_rows",
-                    output_filename="county.csv",
-                    read_config=XlsxReadConfig(),
+                    strategy="xlsx_rows", output_filename="county.csv", read_config=XlsxReadConfig()
                 ),
             )
         },
@@ -111,14 +81,8 @@ def test_ingests_multiple_xlsx_assets_as_one_stream_batch(
     deps.source_config = source_config
 
     assets = [
-        _asset(
-            tmp_path,
-            "cid0321__single-year__default__all__2002.xlsx",
-        ),
-        _asset(
-            tmp_path,
-            "cid0321__single-year__default__all__2025.xlsx",
-        ),
+        _asset(tmp_path, "cid0321__single-year__default__all__2002.xlsx"),
+        _asset(tmp_path, "cid0321__single-year__default__all__2025.xlsx"),
     ]
 
     ingest_result = BronzeIngestResult(
@@ -130,15 +94,10 @@ def test_ingests_multiple_xlsx_assets_as_one_stream_batch(
     )
 
     with patch(
-        "metrka_core.pipeline.bronze.asset_ingestion."
-        "_ingest_xlsx_asset_batch",
+        "metrka_core.pipeline.bronze.asset_ingestion._ingest_xlsx_asset_batch",
         return_value=ingest_result,
     ) as ingest_batch:
-        result = ingest_landed_assets(
-            runtime=MagicMock(),
-            deps=deps,
-            assets=assets,
-        )
+        result = ingest_landed_assets(runtime=MagicMock(), deps=deps, assets=assets)
 
     ingest_batch.assert_called_once()
 
@@ -153,25 +112,13 @@ def test_ingests_multiple_xlsx_assets_as_one_stream_batch(
     assert result.duplicate_count == 0
 
 
-def test_persists_multiple_xlsx_assets_as_one_bronze_file(
-    tmp_path: Path,
-) -> None:
-    first = (
-        tmp_path
-        / "cid0321__single-year__default__all__2002.xlsx"
-    )
-    second = (
-        tmp_path
-        / "cid0321__single-year__default__all__2025.xlsx"
-    )
+def test_persists_multiple_xlsx_assets_as_one_bronze_file(tmp_path: Path) -> None:
+    first = tmp_path / "cid0321__single-year__default__all__2002.xlsx"
+    second = tmp_path / "cid0321__single-year__default__all__2025.xlsx"
 
-    pd.DataFrame(
-        [{"County": "Florida", "Count": 10}]
-    ).to_excel(first, index=False)
+    pd.DataFrame([{"County": "Florida", "Count": 10}]).to_excel(first, index=False)
 
-    pd.DataFrame(
-        [{"County": "Florida", "Count": 12}]
-    ).to_excel(second, index=False)
+    pd.DataFrame([{"County": "Florida", "Count": 12}]).to_excel(second, index=False)
 
     filename_metadata = FilenameMetadataConfig(
         regex=(
@@ -182,14 +129,8 @@ def test_persists_multiple_xlsx_assets_as_one_bronze_file(
             r"(?P<year>[0-9]{4})\.xlsx$"
         ),
         columns={
-            "cid_id": FilenameMetadataColumn(
-                from_group="cid_id",
-                value_type="string",
-            ),
-            "reporting_year": FilenameMetadataColumn(
-                from_group="year",
-                value_type="integer",
-            ),
+            "cid_id": FilenameMetadataColumn(from_group="cid_id", value_type="string"),
+            "reporting_year": FilenameMetadataColumn(from_group="year", value_type="integer"),
         },
         member_key=("cid_id", "reporting_year"),
     )
@@ -202,9 +143,7 @@ def test_persists_multiple_xlsx_assets_as_one_bronze_file(
                 official_filename="cid0321__*.xlsx",
                 filename_metadata=filename_metadata,
                 bronze_assembly=BronzeAssemblyConfig(
-                    strategy="xlsx_rows",
-                    output_filename="county.csv",
-                    read_config=XlsxReadConfig(),
+                    strategy="xlsx_rows", output_filename="county.csv", read_config=XlsxReadConfig()
                 ),
             )
         },
@@ -233,10 +172,7 @@ def test_persists_multiple_xlsx_assets_as_one_bronze_file(
                 check_type="output_files_created",
                 gate=QualityGate.POST_BRONZE,
                 severity=QualitySeverity.BLOCKING,
-                params={
-                    "min_files": 1,
-                    "min_file_bytes": 1,
-                },
+                params={"min_files": 1, "min_file_bytes": 1},
             ),
         ),
     )
@@ -245,20 +181,9 @@ def test_persists_multiple_xlsx_assets_as_one_bronze_file(
     deps.quality_checks = MagicMock()
     deps.file_marshal_store = MagicMock()
 
-    deps.bronze_run_ids.new_bronze_run_id.return_value = (
-        "bronze-run-1"
-    )
-    deps.dataset_file_ids.new_dataset_file_id.return_value = (
-        "dataset-file-1"
-    )
-    deps.clock.now_utc.return_value = datetime(
-        2026,
-        10,
-        3,
-        12,
-        0,
-        tzinfo=UTC,
-    )
+    deps.bronze_run_ids.new_bronze_run_id.return_value = "bronze-run-1"
+    deps.dataset_file_ids.new_dataset_file_id.return_value = "dataset-file-1"
+    deps.clock.now_utc.return_value = datetime(2026, 10, 3, 12, 0, tzinfo=UTC)
     deps.marshal.get_by_hash.return_value = None
 
     runtime = MagicMock()
@@ -284,10 +209,7 @@ def test_persists_multiple_xlsx_assets_as_one_bronze_file(
         ],
     )
 
-    bronze_file = (
-        bronze_store.run_dir(run_id="bronze-run-1")
-        / "county.csv"
-    )
+    bronze_file = bronze_store.run_dir(run_id="bronze-run-1") / "county.csv"
 
     assert bronze_file.is_file()
 
@@ -310,44 +232,22 @@ def test_persists_multiple_xlsx_assets_as_one_bronze_file(
     assert registered_file.column_count_raw == 4
 
     quality_records = [
-        call.args[0]
-        for call in (
-            deps.quality_checks
-            .insert_quality_check_run
-            .call_args_list
-        )
+        call.args[0] for call in (deps.quality_checks.insert_quality_check_run.call_args_list)
     ]
 
-    assert [
-        record["check_id"]
-        for record in quality_records
-    ] == [
+    assert [record["check_id"] for record in quality_records] == [
         "test-xlsx-package-integrity",
         "test-xlsx-package-integrity",
         "test-bronze-output-created",
     ]
 
-    assert all(
-        str(tmp_path) not in str(record["actual"])
-        for record in quality_records
-    )
+    assert all(str(tmp_path) not in str(record["actual"]) for record in quality_records)
 
     execution_events = [
-        call.args[0]
-        for call in (
-            deps.execution_logs
-            .insert_execution_log
-            .call_args_list
-        )
+        call.args[0] for call in (deps.execution_logs.insert_execution_log.call_args_list)
     ]
 
-    assert [
-        event.event_type
-        for event in execution_events
-    ] == [
-        "step_started",
-        "step_finished",
-    ]
+    assert [event.event_type for event in execution_events] == ["step_started", "step_finished"]
 
     started_event, finished_event = execution_events
 
