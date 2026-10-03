@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import os
+from uuid import uuid4
 
 import psycopg
 import pytest
 
 from metrka_core.metadata.postgres import PostgresSession
 from metrka_core.metadata.schema_compatibility import inspect_metadata_schema
+from metrka_core.pipeline.acquisition.models import SourceCaptureAssetBinding
+from metrka_core.pipeline.acquisition.postgres_source_capture_store import (
+    PostgresSourceCaptureStore,
+)
 
 TEST_DSN = os.environ.get("METRKA_MIGRATION_TEST_DSN")
 OPERATIONS_DSN = os.environ.get("METRKA_OPERATIONS_DSN")
@@ -725,3 +730,117 @@ def test_contract_snapshots_use_dataset_scoped_primary_key() -> None:
 
     assert primary_key_columns == [("dataset_id",), ("contract_hash",)]
     assert dataset_id_nullable == ("NO",)
+
+
+def test_source_capture_assets_use_path_scoped_primary_key() -> None:
+    with psycopg.connect(_test_dsn()) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT attribute.attname
+            FROM pg_index AS index_definition
+            CROSS JOIN LATERAL unnest(index_definition.indkey)
+                WITH ORDINALITY AS primary_key_column(
+                    attnum,
+                    position
+                )
+            JOIN pg_attribute AS attribute
+              ON attribute.attrelid =
+                 index_definition.indrelid
+             AND attribute.attnum =
+                 primary_key_column.attnum
+            WHERE index_definition.indrelid =
+                  'meta.source_capture_assets'::regclass
+              AND index_definition.indisprimary
+            ORDER BY primary_key_column.position
+            """
+        )
+
+        primary_key_columns = cursor.fetchall()
+
+    assert primary_key_columns == [("source_capture_id",), ("stream_name",), ("relative_path",)]
+
+
+def test_source_capture_store_binds_multiple_paths_for_one_stream() -> None:
+    capture_id = f"capture_test_{uuid4().hex}"
+    dataset_file_id = f"dataset_file_test_{uuid4().hex}"
+
+    paths = (
+        "cid0321__single-year__default__all__2002.xlsx",
+        "cid0321__single-year__default__all__2025.xlsx",
+    )
+
+    with psycopg.connect(_test_dsn()) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """
+            INSERT INTO meta.marshaled_files (
+                dataset_file_id,
+                artifact_role,
+                bronze_artifacts
+            )
+            VALUES (%s, 'data', '[]'::jsonb)
+            """,
+            (dataset_file_id,),
+        )
+        cursor.execute(
+            """
+            INSERT INTO meta.source_captures (
+                source_capture_id,
+                workspace_name,
+                captured_at,
+                capture_path
+            )
+            VALUES (%s, 'fl_healthcharts', now(), %s)
+            """,
+            (capture_id, f"captures/{capture_id}"),
+        )
+
+    assets = tuple(
+        SourceCaptureAssetBinding(
+            stream_name="county",
+            dataset_id="fl_healthcharts.county",
+            dataset_file_id=dataset_file_id,
+            relative_path=relative_path,
+            source_url="manual_upload",
+            artifact_role="data",
+        )
+        for relative_path in paths
+    )
+
+    try:
+        with PostgresSession(_test_dsn()) as session:
+            store = PostgresSourceCaptureStore(session)
+            store.bind_assets(source_capture_id=capture_id, assets=assets)
+
+            # Повторная запись должна быть безопасной и не создавать копии.
+            store.bind_assets(source_capture_id=capture_id, assets=assets)
+
+        with psycopg.connect(_test_dsn()) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT relative_path
+                FROM meta.source_capture_assets
+                WHERE source_capture_id = %s
+                  AND stream_name = 'county'
+                ORDER BY relative_path
+                """,
+                (capture_id,),
+            )
+            stored_paths = tuple(row[0] for row in cursor.fetchall())
+
+        assert stored_paths == tuple(sorted(paths))
+    finally:
+        with psycopg.connect(_test_dsn()) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                """
+                DELETE FROM meta.source_captures
+                WHERE source_capture_id = %s
+                """,
+                (capture_id,),
+            )
+            cursor.execute(
+                """
+                DELETE FROM meta.marshaled_files
+                WHERE dataset_file_id = %s
+                """,
+                (dataset_file_id,),
+            )

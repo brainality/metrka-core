@@ -206,3 +206,51 @@ def test_pattern_backfill_rejects_file_matching_multiple_streams(tmp_path: Path)
             source_capture_id=CAPTURE_ID,
             match_mode="pattern",
         )
+
+
+def test_source_capture_receipt_allows_multiple_files_for_one_stream() -> None:
+    receipt = SourceCaptureReceipt(
+        source_capture_id=CAPTURE_ID,
+        pipeline_run_id="pipeline-1",
+        captured_at=CAPTURED_AT,
+        assets=(
+            SourceCaptureAssetReceipt(
+                stream_name="county",
+                relative_path=("cid0321__single-year__default__all__2002.xlsx"),
+                source_url="manual_upload",
+                artifact_role="data",
+                size_bytes=100,
+            ),
+            SourceCaptureAssetReceipt(
+                stream_name="county",
+                relative_path=("cid0321__single-year__default__all__2025.xlsx"),
+                source_url="manual_upload",
+                artifact_role="data",
+                size_bytes=120,
+            ),
+        ),
+    )
+
+    assert len(receipt.assets) == 2
+    assert {asset.relative_path for asset in receipt.assets} == {
+        "cid0321__single-year__default__all__2002.xlsx",
+        "cid0321__single-year__default__all__2025.xlsx",
+    }
+
+
+def test_source_capture_receipt_rejects_duplicate_stream_path() -> None:
+    duplicate_asset = SourceCaptureAssetReceipt(
+        stream_name="county",
+        relative_path="cid0321__single-year__default__all__2002.xlsx",
+        source_url="manual_upload",
+        artifact_role="data",
+        size_bytes=100,
+    )
+
+    with pytest.raises(ValueError, match="must not repeat stream and relative path"):
+        SourceCaptureReceipt(
+            source_capture_id=CAPTURE_ID,
+            pipeline_run_id="pipeline-1",
+            captured_at=CAPTURED_AT,
+            assets=(duplicate_asset, duplicate_asset),
+        )
