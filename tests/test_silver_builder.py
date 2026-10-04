@@ -48,6 +48,58 @@ tables:
     return contract
 
 
+def _reconciliation_contract(tmp_path: Path) -> Path:
+    contract = tmp_path / "conf" / "reconciliation.yaml"
+    contract.parent.mkdir(parents=True, exist_ok=True)
+
+    contract.write_text(
+        """
+tables:
+  people:
+    columns:
+      County:
+        rename_to: geography_name
+        cast_to: string
+      Count:
+        rename_to: licensed_bed_count
+        cast_to: int
+      reporting_year:
+        rename_to: reporting_year
+        cast_to: int
+      cid_id:
+        rename_to: indicator_id
+        cast_to: string
+
+    parent_child_reconciliation:
+      group_by:
+        - reporting_year
+        - indicator_id
+
+      parent:
+        column: geography_name
+        equals: Florida
+
+      measure_column: licensed_bed_count
+
+      residual:
+        label_column: geography_name
+        label_value: Unallocated
+
+      remove_parent: true
+      negative_difference: fail
+
+    canonical_order:
+      - geography_name
+      - licensed_bed_count
+      - reporting_year
+      - indicator_id
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    return contract
+
+
 def _quality_config() -> QualityConfig:
     return QualityConfig(
         version=1,
@@ -82,6 +134,7 @@ def _build(
     tmp_path: Path,
     source: Path,
     input_format: str = "csv",
+    contract_path: Path | None = None,
     transformation_impact_store: MagicMock | None = None,
     transformation_impact_ids: MagicMock | None = None,
     quality_store: MagicMock | None = None,
@@ -116,7 +169,7 @@ def _build(
         bronze_ingested_at=datetime(2026, 8, 13, tzinfo=UTC),
         silver_processed_at=SILVER_PROCESSED_AT,
         input_file_path=source,
-        cfg_path=_contract(tmp_path),
+        cfg_path=(contract_path if contract_path is not None else _contract(tmp_path)),
         table_key="people",
         execution_log_store=MagicMock(),
         quality_store=resolved_quality_store,
@@ -207,3 +260,49 @@ def test_builder_quality_evidence_uses_workspace_relative_paths(tmp_path: Path) 
 
     assert output_record["actual"]["output_files"] == expected_paths
     assert str(tmp_path) not in str(output_record["actual"])
+
+
+def test_builder_persists_parent_child_reconciliation_evidence(tmp_path: Path) -> None:
+    source = tmp_path / "people.csv"
+    source.write_text(
+        (
+            "County,Count,reporting_year,cid_id\n"
+            "Florida,35,2002,0321\n"
+            "Alachua,10,2002,0321\n"
+            "Baker,20,2002,0321\n"
+        ),
+        encoding="utf-8",
+    )
+
+    impact_store = MagicMock()
+
+    result = _build(
+        tmp_path=tmp_path,
+        source=source,
+        contract_path=_reconciliation_contract(tmp_path),
+        transformation_impact_store=impact_store,
+    )
+
+    impact_store.insert_many.assert_called_once()
+    impacts = impact_store.insert_many.call_args.args[0]
+
+    reconciliation = next(
+        impact for impact in impacts if impact.operation == "parent_child_reconciliation"
+    )
+
+    assert reconciliation.column_name == "licensed_bed_count"
+    assert reconciliation.affected_row_count == 1
+    assert reconciliation.meta["evidence_kind"] == ("parent_child_reconciliation")
+    assert reconciliation.meta["metrics"]["parent_total"] == 35
+    assert reconciliation.meta["metrics"]["child_total"] == 30
+    assert reconciliation.meta["metrics"]["difference"] == 5
+    assert reconciliation.meta["metrics"]["group"] == {
+        "reporting_year": 2002,
+        "indicator_id": "0321",
+    }
+
+    data_path = next(path for path in result.staged_paths if path.suffix == ".csv")
+    output = pd.read_csv(data_path, dtype=str)
+
+    assert output["geography_name"].tolist() == ["Alachua", "Baker", "Unallocated"]
+    assert output["licensed_bed_count"].tolist() == ["10", "20", "5"]

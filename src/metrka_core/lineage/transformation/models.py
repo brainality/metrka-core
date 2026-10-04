@@ -38,6 +38,7 @@ class TransformationEvidenceKind(StrEnum):
     DATE_PARSE = "date_parse"
     CASE_CONVERSION = "case_conversion"
     COLUMN_RENAME = "column_rename"
+    PARENT_CHILD_RECONCILIATION = "parent_child_reconciliation"
 
 
 class TransformationEvidenceStatus(StrEnum):
