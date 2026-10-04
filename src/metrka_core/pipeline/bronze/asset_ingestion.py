@@ -130,6 +130,8 @@ def _persist_xlsx_asset_batch(
             "is_zip": False,
             "file_extension": asset.path.suffix.casefold(),
             "landed_file": asset.path,
+            "xlsx_sheet_name": assembly_config.read_config.sheet_name,
+            "xlsx_header_row": assembly_config.read_config.header_row,
             "content_hash": member.sha256,
             "size_bytes": member.size_bytes,
             "fingerprint_meta": {

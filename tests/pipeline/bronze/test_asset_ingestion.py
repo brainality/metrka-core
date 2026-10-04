@@ -168,6 +168,13 @@ def test_persists_multiple_xlsx_assets_as_one_bronze_file(tmp_path: Path) -> Non
                 severity=QualitySeverity.BLOCKING,
             ),
             QualityCheckSpec(
+                check_id="test-xlsx-has-data-rows",
+                check_type="xlsx_has_data_rows",
+                gate=QualityGate.PRE_BRONZE,
+                severity=QualitySeverity.BLOCKING,
+                params={"min_rows": 1},
+            ),
+            QualityCheckSpec(
                 check_id="test-bronze-output-created",
                 check_type="output_files_created",
                 gate=QualityGate.POST_BRONZE,
@@ -237,9 +244,19 @@ def test_persists_multiple_xlsx_assets_as_one_bronze_file(tmp_path: Path) -> Non
 
     assert [record["check_id"] for record in quality_records] == [
         "test-xlsx-package-integrity",
+        "test-xlsx-has-data-rows",
         "test-xlsx-package-integrity",
+        "test-xlsx-has-data-rows",
         "test-bronze-output-created",
     ]
+
+    data_row_records = [
+        record for record in quality_records if record["check_id"] == "test-xlsx-has-data-rows"
+    ]
+
+    assert [record["actual"]["row_count"] for record in data_row_records] == [1, 1]
+    assert [record["actual"]["sheet_name"] for record in data_row_records] == [0, 0]
+    assert [record["actual"]["header_row"] for record in data_row_records] == [0, 0]
 
     assert all(str(tmp_path) not in str(record["actual"]) for record in quality_records)
 
