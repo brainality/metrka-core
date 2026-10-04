@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, date, datetime
 from itertools import count
 from pathlib import Path
@@ -193,13 +194,20 @@ def test_builder_writes_data_preview_and_business_fingerprint(tmp_path: Path) ->
     data_path = next(path for path in result.staged_paths if path.suffix == ".csv")
     preview_path = next(path for path in result.staged_paths if path.suffix == ".json")
     output = pd.read_csv(data_path, dtype=str)
+    preview = json.loads(preview_path.read_text(encoding="utf-8"))
 
     assert data_path.is_file()
     assert preview_path.is_file()
     assert result.fingerprint.table_key == "people"
     assert result.fingerprint.row_count == 2
     assert result.fingerprint.column_count == 2
-    assert output["dataset_id"].unique().tolist() == ["people.dataset"]
+    assert output.columns.tolist() == ["id", "name"]
+    assert output.to_dict(orient="records") == [
+        {"id": "1", "name": "Alice"},
+        {"id": "2", "name": "Bob"},
+    ]
+    assert preview["columns"] == ["id", "name"]
+    assert preview["rows"] == [{"id": "1", "name": "Alice"}, {"id": "2", "name": "Bob"}]
 
 
 def test_builder_rejects_unsupported_input_format(tmp_path: Path) -> None:
@@ -304,5 +312,11 @@ def test_builder_persists_parent_child_reconciliation_evidence(tmp_path: Path) -
     data_path = next(path for path in result.staged_paths if path.suffix == ".csv")
     output = pd.read_csv(data_path, dtype=str)
 
+    assert output.columns.tolist() == [
+        "geography_name",
+        "licensed_bed_count",
+        "reporting_year",
+        "indicator_id",
+    ]
     assert output["geography_name"].tolist() == ["Alachua", "Baker", "Unallocated"]
     assert output["licensed_bed_count"].tolist() == ["10", "20", "5"]

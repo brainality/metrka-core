@@ -239,21 +239,12 @@ def build_silver_table(
         if post_hook is not None:
             table = post_hook(table)
 
-        table_fingerprint = fingerprint_silver_table(table_key=table_key, table=table)
-
-        table = _add_silver_metadata_columns(
-            table,
-            bronze_run_id=bronze_run_id,
-            source_file_name=source_file_name,
-            dataset_id=dataset_id,
-            table_key=table_key,
-            bronze_ingested_at=bronze_ingested_at,
-            silver_processed_at=silver_processed_at,
-            version_period=version_period.value.isoformat(),
-            version_period_grain=version_period.grain,
-            version_period_source=version_period.source,
-            content_hash=content_hash,
+        canonical_columns = [str(column) for column in table_cfg["canonical_order"]]
+        table = _select_canonical_columns(
+            table, canonical_columns=canonical_columns, table_key=table_key
         )
+
+        table_fingerprint = fingerprint_silver_table(table_key=table_key, table=table)
 
         # ==============================================================================
         # 5. Save table (Multi-Target Output)
@@ -286,7 +277,7 @@ def build_silver_table(
         output_row_count = len(table)
         output_column_count = len(table.columns)
 
-        expected_output_columns = [*table_cfg["canonical_order"], *SILVER_METADATA_COLUMNS]
+        expected_output_columns = canonical_columns
 
         quality_output_files = tuple(
             QualityOutputFile(
@@ -468,7 +459,7 @@ def build_silver_table(
                 extra={
                     "version_period_grain": version_period.grain,
                     "version_period_source": version_period.source,
-                    "metadata_columns": list(SILVER_METADATA_COLUMNS),
+                    "published_columns": canonical_columns,
                     "input_file": input_file_path.name,
                     "saved_files": [silver_store.relative_path(path) for path in saved_paths],
                     "saved_formats": target_formats,
@@ -497,58 +488,17 @@ def build_silver_table(
         )
 
 
-SILVER_METADATA_COLUMNS = [
-    "bronze_run_id",
-    "source_file_name",
-    "dataset_id",
-    "table_key",
-    "bronze_ingested_at",
-    "silver_processed_at",
-    "version_period",
-    "version_period_grain",
-    "version_period_source",
-    "content_hash",
-]
-
-
-def _add_silver_metadata_columns(
-    table: pd.DataFrame,
-    *,
-    bronze_run_id: str,
-    source_file_name: str,
-    dataset_id: str,
-    table_key: str,
-    bronze_ingested_at: datetime,
-    silver_processed_at: datetime,
-    version_period: str,
-    version_period_grain: str,
-    version_period_source: str,
-    content_hash: str,
+def _select_canonical_columns(
+    table: pd.DataFrame, *, canonical_columns: list[str], table_key: str
 ) -> pd.DataFrame:
-    """Append stable lineage columns to every Silver output row."""
+    """Select the contract-defined public columns in their canonical order."""
+    missing_columns = [column for column in canonical_columns if column not in table.columns]
+    if missing_columns:
+        raise RuntimeError(
+            f"Silver table {table_key!r} is missing canonical columns: {missing_columns}"
+        )
 
-    metadata = {
-        "bronze_run_id": bronze_run_id,
-        "source_file_name": source_file_name,
-        "dataset_id": dataset_id,
-        "table_key": table_key,
-        "bronze_ingested_at": _utc_isoformat(bronze_ingested_at),
-        "silver_processed_at": _utc_isoformat(silver_processed_at),
-        "version_period": version_period,
-        "version_period_grain": version_period_grain,
-        "version_period_source": version_period_source,
-        "content_hash": content_hash,
-    }
-
-    out = table.copy()
-    overlapping_columns = sorted(set(out.columns) & set(metadata))
-    if overlapping_columns:
-        logger.warning("Overwriting reserved Silver metadata columns: %s", overlapping_columns)
-
-    for column, value in metadata.items():
-        out[column] = value
-
-    return out
+    return table.loc[:, canonical_columns].copy()
 
 
 def _utc_isoformat(value: datetime) -> str:
@@ -579,7 +529,7 @@ def _write_preview_json(
     preview_path = target_path.with_name(f"{target_path.name}_preview.json")
     preview_path.parent.mkdir(parents=True, exist_ok=True)
 
-    preview_columns = [column for column in table.columns if column not in SILVER_METADATA_COLUMNS]
+    preview_columns = [str(column) for column in table_cfg["canonical_order"]]
 
     preview = table.loc[:, preview_columns].head(preview_rows).copy()
 
