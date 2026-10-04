@@ -65,6 +65,7 @@ def validate_contract_file(path: Path) -> dict[str, Any]:
         _validate_supported_rule_keys(table_name, columns)
         _validate_normalize_values_rules(table_name, columns)
         _validate_supported_cast_types(table_name, columns)
+        _validate_parent_child_reconciliation(table_name, table_cfg, renamed_columns)
 
     logger.info("Silver contract validation passed: %s tables=%d", path, len(tables))
 
@@ -371,3 +372,140 @@ def _validate_supported_cast_types(table_name: str, columns: dict[str, Any]) -> 
             raise ContractValidationError(
                 f"{table_name}.{source_col}: 'cast_to' requires a non-empty string 'format_in' rule"
             )
+
+
+def _validate_parent_child_reconciliation(
+    table_name: str, table_cfg: dict[str, Any], final_columns: list[str]
+) -> None:
+    config = table_cfg.get("parent_child_reconciliation")
+
+    if config is None:
+        return
+
+    if not isinstance(config, dict):
+        raise ContractValidationError(
+            f"{table_name}: parent_child_reconciliation must be a mapping"
+        )
+
+    allowed_keys = {
+        "group_by",
+        "parent",
+        "measure_column",
+        "residual",
+        "remove_parent",
+        "negative_difference",
+    }
+    unknown_keys = sorted(set(config) - allowed_keys)
+
+    if unknown_keys:
+        raise ContractValidationError(
+            f"{table_name}: unsupported parent_child_reconciliation keys: {unknown_keys}"
+        )
+
+    available_columns = set(final_columns)
+
+    group_by = config.get("group_by")
+
+    if (
+        not isinstance(group_by, list)
+        or not group_by
+        or any(not isinstance(column, str) or not column.strip() for column in group_by)
+    ):
+        raise ContractValidationError(
+            f"{table_name}: parent_child_reconciliation.group_by "
+            "must be a non-empty list of column names"
+        )
+
+    if len(group_by) != len(set(group_by)):
+        raise ContractValidationError(
+            f"{table_name}: parent_child_reconciliation.group_by must not contain duplicates"
+        )
+
+    unknown_group_columns = sorted(set(group_by) - available_columns)
+
+    if unknown_group_columns:
+        raise ContractValidationError(
+            f"{table_name}: parent_child_reconciliation.group_by "
+            f"contains unknown columns: {unknown_group_columns}"
+        )
+
+    parent = config.get("parent")
+
+    if not isinstance(parent, dict):
+        raise ContractValidationError(
+            f"{table_name}: parent_child_reconciliation.parent must be a mapping"
+        )
+
+    if set(parent) != {"column", "equals"}:
+        raise ContractValidationError(
+            f"{table_name}: parent_child_reconciliation.parent "
+            "must define exactly 'column' and 'equals'"
+        )
+
+    parent_column = parent["column"]
+
+    if not isinstance(parent_column, str) or parent_column not in available_columns:
+        raise ContractValidationError(f"{table_name}: unknown parent column {parent_column!r}")
+
+    if not isinstance(parent["equals"], (str, int, float, bool)):
+        raise ContractValidationError(
+            f"{table_name}: parent_child_reconciliation.parent.equals must be a scalar value"
+        )
+
+    measure_column = config.get("measure_column")
+
+    if not isinstance(measure_column, str) or measure_column not in available_columns:
+        raise ContractValidationError(f"{table_name}: unknown measure_column {measure_column!r}")
+
+    final_column_rules = {rule["rename_to"]: rule for rule in table_cfg["columns"].values()}
+    measure_cast_type = final_column_rules[measure_column]["cast_to"]
+
+    is_numeric_measure = (
+        measure_cast_type in {"int", "float"}
+        or parse_decimal_cast_type(measure_cast_type) is not None
+    )
+
+    if not is_numeric_measure:
+        raise ContractValidationError(
+            f"{table_name}: parent_child_reconciliation.measure_column "
+            f"{measure_column!r} must use a numeric cast type"
+        )
+
+    residual = config.get("residual")
+
+    if not isinstance(residual, dict):
+        raise ContractValidationError(
+            f"{table_name}: parent_child_reconciliation.residual must be a mapping"
+        )
+
+    if set(residual) != {"label_column", "label_value"}:
+        raise ContractValidationError(
+            f"{table_name}: parent_child_reconciliation.residual "
+            "must define exactly 'label_column' and 'label_value'"
+        )
+
+    label_column = residual["label_column"]
+
+    if not isinstance(label_column, str) or label_column not in available_columns:
+        raise ContractValidationError(
+            f"{table_name}: unknown residual label_column {label_column!r}"
+        )
+
+    if not isinstance(residual["label_value"], (str, int, float, bool)):
+        raise ContractValidationError(
+            f"{table_name}: parent_child_reconciliation.residual.label_value must be a scalar value"
+        )
+
+    remove_parent = config.get("remove_parent")
+
+    if not isinstance(remove_parent, bool):
+        raise ContractValidationError(
+            f"{table_name}: parent_child_reconciliation.remove_parent must be true or false"
+        )
+
+    negative_difference = config.get("negative_difference")
+
+    if negative_difference != "fail":
+        raise ContractValidationError(
+            f"{table_name}: parent_child_reconciliation.negative_difference must be 'fail'"
+        )

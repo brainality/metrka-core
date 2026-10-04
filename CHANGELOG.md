@@ -18,6 +18,10 @@ modules remain implementation details unless they are listed in
   one deterministic CSV, with configurable metadata extracted from filenames.
 - Added the configurable `xlsx_has_data_rows` pre-Bronze quality check using
   the stream's XLSX sheet and header settings.
+- Added configurable Silver parent-child reconciliation that removes parent
+  total rows, creates derived `Unallocated` rows for positive differences,
+  rejects child totals greater than their parent, and records evidence for
+  every reconciled group.
 
 ### Changed
 

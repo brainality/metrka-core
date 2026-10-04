@@ -18,6 +18,7 @@ from metrka_core.lineage.transformation.models import TransformationEvidence
 from metrka_core.transform.cast_types import is_date_like_cast_type, resolve_silver_cast_type
 from metrka_core.transform.ops.casting import cast_columns, normalize_missing
 from metrka_core.transform.ops.dates import parse_dates
+from metrka_core.transform.ops.reconciliation import reconcile_parent_child_rows
 from metrka_core.transform.ops.text import convert_case, normalize_values
 from metrka_core.transform.result import TransformationResult
 
@@ -189,7 +190,7 @@ def apply_transformation(df: pd.DataFrame, cfg: dict[str, Any]) -> Transformatio
     """
     Apply table schema rules to a DataFrame.
 
-    Order: validate => rename => normalize_missing => normalize_values => cast => parse_dates => case => reorder.
+    Order: validate => rename => normalize_missing => normalize_values => cast => parse_dates => case => reconcile => reorder.
     Contract mismatches always stop transformation of the current dataset.
     """
 
@@ -236,7 +237,15 @@ def apply_transformation(df: pd.DataFrame, cfg: dict[str, Any]) -> Transformatio
     data_df = case_result.data
     evidence.extend(case_result.evidence)
 
-    # 8) final column order
+    # 8) reconcile parent totals with child rows
+    reconciliation_config = cfg.get("parent_child_reconciliation")
+
+    if reconciliation_config is not None:
+        reconciliation_result = reconcile_parent_child_rows(data_df, reconciliation_config)
+        data_df = reconciliation_result.data
+        evidence.extend(reconciliation_result.evidence)
+
+    # 9) final column order
     data_df = _apply_canonical_order(data_df, cfg.get("canonical_order"))
 
     logger.info("done: rows=%d cols=%d", len(data_df), len(data_df.columns))
