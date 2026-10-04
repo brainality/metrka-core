@@ -16,6 +16,8 @@ modules remain implementation details unless they are listed in
   a filename pattern.
 - Allow Bronze ingestion to assemble multiple XLSX files from one stream into
   one deterministic CSV, with configurable metadata extracted from filenames.
+- Added the configurable `xlsx_has_data_rows` pre-Bronze quality check using
+  the stream's XLSX sheet and header settings.
 
 ### Changed
 
