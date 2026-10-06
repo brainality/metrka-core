@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+from metrka_core.catalog.temporal_coverage import parse_temporal_coverage_spec
 from metrka_core.datasets.source_config import SourceConfig
 from metrka_core.pipeline.action_runtime import ActionRuntime
 from metrka_core.pipeline.silver.config_fingerprints import calculate_config_hash
@@ -107,6 +108,17 @@ def build_silver_tasks(*, source_config: SourceConfig) -> list[SilverTaskConfig]
             silver_config.get("outputs", ["parquet"]), stream_name=stream_name
         )
 
+        temporal_coverage_raw = silver_config.get("temporal_coverage")
+        temporal_coverage = None
+
+        if temporal_coverage_raw is not None:
+            try:
+                temporal_coverage = parse_temporal_coverage_spec(temporal_coverage_raw)
+            except ValueError as error:
+                raise RuntimeError(
+                    f"Invalid silver.temporal_coverage for stream {stream_name}: {error}"
+                ) from error
+
         catalog_config = stream.extra.get("catalog", {})
 
         if not isinstance(catalog_config, dict):
@@ -123,6 +135,19 @@ def build_silver_tasks(*, source_config: SourceConfig) -> list[SilverTaskConfig]
 
         dataset_id = source_config.dataset_id(stream_name)
 
+        processing_config = {
+            "dataset_id": dataset_id,
+            "yaml_contract_name": stream.yaml_contract_name,
+            "partition_key": partition_key.strip(),
+            "version_period": version_period_raw,
+            "input": {"format": input_format.strip(), "options": dict(input_options)},
+            "outputs": output_formats,
+            "catalog_highlights": [dict(highlight) for highlight in catalog_highlights],
+        }
+
+        if temporal_coverage is not None:
+            processing_config["temporal_coverage"] = temporal_coverage.to_config_dict()
+
         tasks.append(
             SilverTaskConfig(
                 dataset_id=dataset_id,
@@ -133,17 +158,8 @@ def build_silver_tasks(*, source_config: SourceConfig) -> list[SilverTaskConfig]
                 input_kwargs=dict(input_options),
                 output_formats=output_formats,
                 catalog_highlights=[dict(highlight) for highlight in catalog_highlights],
-                processing_config_hash=calculate_config_hash(
-                    {
-                        "dataset_id": dataset_id,
-                        "yaml_contract_name": stream.yaml_contract_name,
-                        "partition_key": partition_key.strip(),
-                        "version_period": version_period_raw,
-                        "input": {"format": input_format.strip(), "options": dict(input_options)},
-                        "outputs": output_formats,
-                        "catalog_highlights": [dict(highlight) for highlight in catalog_highlights],
-                    }
-                ),
+                temporal_coverage=temporal_coverage,
+                processing_config_hash=calculate_config_hash(processing_config),
             )
         )
 
