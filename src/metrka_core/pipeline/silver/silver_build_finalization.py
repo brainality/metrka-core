@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from metrka_core.catalog.temporal_coverage import TemporalCoverageSpec
 from metrka_core.observability.execution_step_meta import ExecutionStepMeta
 from metrka_core.observability.execution_step_scope import run_step
 from metrka_core.observability.stores import ExecutionLogStore
@@ -69,6 +70,7 @@ class SilverBuildFinalizationRequest:
     rebuild_decision: RebuildDecision
     code_provenance: CodeProvenance
     fingerprint: SilverDatasetFingerprint
+    temporal_coverage_spec: TemporalCoverageSpec | None = None
 
 
 @dataclass(frozen=True)
@@ -175,6 +177,7 @@ def _prepare_build(
         committed_files=list(committed_files),
         catalog_highlight_specs=[dict(spec) for spec in request.catalog_highlight_specs],
         fingerprint=request.fingerprint,
+        temporal_coverage_spec=request.temporal_coverage_spec,
         created_at=completed_at,
     )
 

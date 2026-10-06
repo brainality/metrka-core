@@ -139,6 +139,7 @@ def finalize_candidate_build(
                 contract_meta=candidate.contract_meta,
                 staged_files=table_build.staged_files,
                 catalog_highlight_specs=tuple(dict(spec) for spec in task.catalog_highlights),
+                temporal_coverage_spec=task.temporal_coverage,
                 rebuild_decision=candidate.rebuild_decision,
                 code_provenance=runtime.code_provenance,
                 fingerprint=table_build.fingerprint,

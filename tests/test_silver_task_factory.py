@@ -6,7 +6,17 @@ from metrka_core.datasets.source_config import SourceConfig, StreamConfig
 from metrka_core.pipeline.silver.task_factory import build_silver_tasks
 
 
-def _source_config(*, outputs: object) -> SourceConfig:
+def _source_config(*, outputs: object, temporal_coverage: object | None = None) -> SourceConfig:
+    silver: dict[str, object] = {
+        "partition_by": "version_period",
+        "input": {"format": "csv", "options": {}},
+        "version_period": {"strategy": "source_last_modified", "grain": "day"},
+        "outputs": outputs,
+    }
+
+    if temporal_coverage is not None:
+        silver["temporal_coverage"] = temporal_coverage
+
     return SourceConfig(
         workspace_name="example",
         streams={
@@ -14,14 +24,7 @@ def _source_config(*, outputs: object) -> SourceConfig:
                 name="records",
                 official_filename="records.csv",
                 yaml_contract_name="records.yaml",
-                extra={
-                    "silver": {
-                        "partition_by": "version_period",
-                        "input": {"format": "csv", "options": {}},
-                        "version_period": {"strategy": "source_last_modified", "grain": "day"},
-                        "outputs": outputs,
-                    }
-                },
+                extra={"silver": silver},
             )
         },
     )
@@ -50,3 +53,29 @@ def test_build_silver_tasks_rejects_invalid_output_container(outputs: object) ->
         RuntimeError, match="silver.outputs must be a non-empty list of strings for stream records"
     ):
         build_silver_tasks(source_config=_source_config(outputs=outputs))
+
+
+def test_build_silver_tasks_resolves_temporal_coverage() -> None:
+    task = build_silver_tasks(
+        source_config=_source_config(
+            outputs=["parquet"],
+            temporal_coverage={"table": "records", "column": "reporting_year", "grain": "year"},
+        )
+    )[0]
+
+    assert task.temporal_coverage is not None
+    assert task.temporal_coverage.to_config_dict() == {
+        "table": "records",
+        "column": "reporting_year",
+        "grain": "year",
+    }
+
+
+def test_build_silver_tasks_rejects_invalid_temporal_coverage() -> None:
+    with pytest.raises(RuntimeError, match="Invalid silver.temporal_coverage"):
+        build_silver_tasks(
+            source_config=_source_config(
+                outputs=["parquet"],
+                temporal_coverage={"table": "records", "column": "reported_at", "grain": "quarter"},
+            )
+        )

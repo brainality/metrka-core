@@ -6,6 +6,8 @@ from unittest.mock import Mock
 
 import pytest
 
+from metrka_core.catalog.temporal_coverage import TemporalCoverageSpec
+from metrka_core.pipeline.silver import silver_artifacts
 from metrka_core.pipeline.silver.silver_artifacts import (
     contract_snapshot_metadata,
     snapshot_contract,
@@ -98,7 +100,7 @@ def test_contract_store_rejects_paths_outside_their_owning_roots(tmp_path: Path)
 
 
 def test_silver_manifest_uses_portable_contract_paths_without_resolving_physical_root(
-    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     contract_path = tmp_path / "definitions" / "example" / "conf" / "contract.yaml"
     snapshot_path = tmp_path / "data" / "contracts" / "example" / "contract.yaml"
@@ -113,6 +115,17 @@ def test_silver_manifest_uses_portable_contract_paths_without_resolving_physical
     code_provenance.to_dict.return_value = {}
     fingerprint = Mock()
     fingerprint.to_manifest_dict.return_value = {}
+    expected_coverage = {
+        "grain": "year",
+        "source": {"table_key": "records", "column": "reporting_year"},
+        "periods": [{"start": 2002, "end": 2025}],
+        "minimum": 2002,
+        "maximum": 2025,
+        "distinct_value_count": 24,
+    }
+    monkeypatch.setattr(
+        silver_artifacts, "calculate_temporal_coverage", lambda **_kwargs: expected_coverage
+    )
 
     _, manifest = write_silver_manifest(
         silver_store=silver_store,
@@ -141,9 +154,13 @@ def test_silver_manifest_uses_portable_contract_paths_without_resolving_physical
         committed_files=[],
         catalog_highlight_specs=[],
         fingerprint=fingerprint,
+        temporal_coverage_spec=TemporalCoverageSpec(
+            table_key="records", column="reporting_year", grain="year"
+        ),
     )
 
     assert manifest["contract"]["path"] == "conf/contract.yaml"
     assert manifest["contract"]["snapshot_path"] == "contracts/example/contract.yaml"
     assert manifest["contract"]["version"] == "1"
+    assert manifest["catalog"]["temporal_coverage"] == expected_coverage
     silver_store.relative_path.assert_not_called()

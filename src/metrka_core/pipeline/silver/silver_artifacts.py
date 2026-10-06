@@ -20,6 +20,7 @@ import pandas as pd
 import yaml
 
 from metrka_core.catalog.highlights import calculate_catalog_highlights
+from metrka_core.catalog.temporal_coverage import TemporalCoverageSpec, calculate_temporal_coverage
 from metrka_core.metadata.contract_metadata import ContractMetadataStore
 from metrka_core.pipeline.provenance import CodeProvenance
 from metrka_core.pipeline.silver.artifact_models import SilverBuildRef
@@ -147,6 +148,7 @@ def write_silver_manifest(
     committed_files: list[Path],
     catalog_highlight_specs: list[dict[str, Any]],
     fingerprint: SilverDatasetFingerprint,
+    temporal_coverage_spec: TemporalCoverageSpec | None = None,
 ) -> tuple[Path, dict[str, Any]]:
     """Write an immutable manifest for one completed Silver build."""
 
@@ -169,6 +171,12 @@ def write_silver_manifest(
     catalog_highlights = calculate_catalog_highlights(
         specs=catalog_highlight_specs, data_files=data_files, tables_root=silver_store.tables_root
     )
+    catalog: dict[str, Any] = {"highlights": catalog_highlights}
+
+    if temporal_coverage_spec is not None:
+        catalog["temporal_coverage"] = calculate_temporal_coverage(
+            spec=temporal_coverage_spec, data_files=data_files, tables_root=silver_store.tables_root
+        )
 
     manifest = {
         "schema_version": 1,
@@ -205,7 +213,7 @@ def write_silver_manifest(
         "table_count": len({entry["table_key"] for entry in table_files}),
         "file_count": len(table_files),
         "tables": table_files,
-        "catalog": {"highlights": catalog_highlights},
+        "catalog": catalog,
     }
 
     manifest_path = silver_store.write_manifest(
