@@ -35,7 +35,9 @@ the independently processed and published identity of that stream. Its
 `dataset_id` combines the workspace and stream names as
 `<workspace_name>.<stream_name>`; for example, workspace
 `wi_dhs_adult_lead` and stream `county` form dataset
-`wi_dhs_adult_lead.county`.
+`wi_dhs_adult_lead.county`. Stream names never contain a dot, so the last dot
+separates the two parts; read them with `parse_dataset_id()` instead of splitting
+the identifier yourself.
 
 A **table** is one tabular output produced by a dataset. A dataset may produce
 one or more tables, and each table may be materialized as one or more files or

@@ -168,7 +168,7 @@ def test_resolve_dataset_handles_both_layouts(tmp_path: Path) -> None:
     assert resolver.resolve_dataset("flat.inmate_active").name == "flat"
     assert resolver.resolve_dataset("fl.beds").definition_root == folder.resolve()
 
-    with pytest.raises(ValueError, match="workspace.stream"):
+    with pytest.raises(ValueError, match="does not contain a stream name"):
         resolver.resolve_dataset("no_stream")
 
 

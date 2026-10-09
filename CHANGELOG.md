@@ -30,6 +30,9 @@ modules remain implementation details unless they are listed in
   source as `workspace_name` and defines one stream named like the folder.
 - Added `WorkspaceLocationResolver.resolve_dataset(dataset_id)` so readers find
   the folder that defines a published dataset in either layout.
+- Added public `parse_dataset_id()`, `DatasetIdentity`, and
+  `DatasetIdentityError` so applications read the workspace and stream names
+  of a `dataset_id` with the same rule the pipeline uses to build it.
 
 ### Changed
 
@@ -55,6 +58,8 @@ modules remain implementation details unless they are listed in
   check input in favor of one function per gate.
 - Identify source-capture asset bindings by capture, stream, and relative path,
   allowing multiple physical source files to produce one Bronze dataset file.
+- `resolve_dataset()` raises `DatasetIdentityError`, a `ValueError`, for a
+  malformed `dataset_id` and no longer strips surrounding whitespace.
 
 ### Fixed
 

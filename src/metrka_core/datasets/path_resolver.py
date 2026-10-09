@@ -15,5 +15,8 @@ class WorkspaceLocationResolver(Protocol):
         ...
 
     def resolve_dataset(self, dataset_id: str) -> WorkspaceLocation:
-        """Resolve the folder that defines one published dataset (``workspace.stream``)."""
+        """Resolve the folder that defines one published dataset (``workspace.stream``).
+
+        A malformed ``dataset_id`` raises ``DatasetIdentityError``.
+        """
         ...

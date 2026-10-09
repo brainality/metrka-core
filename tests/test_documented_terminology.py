@@ -34,6 +34,7 @@ def test_public_terminology_defines_identity_and_ownership_boundaries() -> None:
         "A **dataset** is",
         "`<workspace_name>.<stream_name>`",
         "`wi_dhs_adult_lead.county`",
+        "read them with `parse_dataset_id()`",
         "A **table** is one tabular output produced by a dataset",
         "publications, and published assets belong to a specific dataset",
     )

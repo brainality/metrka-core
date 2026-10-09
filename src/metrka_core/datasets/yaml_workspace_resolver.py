@@ -10,6 +10,7 @@ from typing import Final
 
 import yaml
 
+from metrka_core.datasets.dataset_identity import parse_dataset_id
 from metrka_core.datasets.workspace_location import WorkspaceLocation, WorkspacePlacement
 
 WORKSPACE_CONFIG_SCHEMA_VERSION: Final = 1
@@ -221,7 +222,8 @@ class YamlWorkspaceLocationResolver:
         location = self.locations.get(normalized_name)
 
         if location is None and "." in normalized_name:
-            source_name, dataset_name = normalized_name.rsplit(".", 1)
+            identity = parse_dataset_id(normalized_name)
+            source_name, dataset_name = identity.workspace_name, identity.stream_name
             source = self.locations.get(source_name)
 
             if source is not None and source.dataset_folders:
@@ -264,17 +266,10 @@ class YamlWorkspaceLocationResolver:
     def resolve_dataset(self, dataset_id: str) -> WorkspaceLocation:
         """Resolve the folder that defines one published dataset (``workspace.stream``)."""
 
-        if not isinstance(dataset_id, str) or not dataset_id.strip():
-            raise ValueError("dataset_id must be a non-empty string")
-
-        workspace_name, separator, stream_name = dataset_id.strip().rpartition(".")
-
-        if not separator or not workspace_name or not stream_name:
-            raise ValueError(f"dataset_id must look like 'workspace.stream': {dataset_id!r}")
-
-        source = self.locations.get(workspace_name)
+        identity = parse_dataset_id(dataset_id)
+        source = self.locations.get(identity.workspace_name)
 
         if source is not None and source.dataset_folders:
-            return self.resolve(dataset_id.strip())
+            return self.resolve(identity.dataset_id)
 
-        return self.resolve(workspace_name)
+        return self.resolve(identity.workspace_name)

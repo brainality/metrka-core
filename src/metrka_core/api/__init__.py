@@ -10,6 +10,11 @@ from metrka_core.catalog.publication_manifest_reader import (
     PublicationManifestReader,
     PublicationManifestReadError,
 )
+from metrka_core.datasets.dataset_identity import (
+    DatasetIdentity,
+    DatasetIdentityError,
+    parse_dataset_id,
+)
 from metrka_core.datasets.path_resolver import WorkspaceLocationResolver
 from metrka_core.datasets.scaffolding import WorkspaceInitializationResult, initialize_workspace
 from metrka_core.datasets.workspace_export import (
@@ -47,6 +52,8 @@ __all__ = [
     "ContractSnapshotReadError",
     "ContractSnapshotReader",
     "DatasetFileIdGenerator",
+    "DatasetIdentity",
+    "DatasetIdentityError",
     "PipelineBootstrapOptions",
     "PipelineRegistry",
     "PipelineRunIdGenerator",
@@ -78,6 +85,7 @@ __all__ = [
     "import_workspace",
     "initialize_workspace",
     "open_pipeline_context",
+    "parse_dataset_id",
     "run_pipeline",
     "validate_workspace",
     "verify_workspace_export",
