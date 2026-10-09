@@ -58,6 +58,9 @@ modules remain implementation details unless they are listed in
   database no longer stop the run with `SILVER_TASK_NOT_CONFIGURED`, and
   `--dataset-id` is no longer needed to avoid them. A `--dataset-id` the
   workspace does not configure is rejected before processing.
+- A source capture of a dataset-folder run is recorded under the source's
+  `workspace_name` instead of the `<source>.<dataset>` run name, so readers can
+  match its assets to the published dataset.
 - Reject XLSX Bronze batches when source column names or their order differ,
   instead of silently combining incompatible columns.
 - Publish only the contract's canonical columns in Silver data files and
