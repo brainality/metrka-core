@@ -36,9 +36,9 @@ from metrka_core.pipeline.silver.fingerprints import (
     fingerprint_silver_table,
 )
 from metrka_core.pipeline.silver.version_period import VersionPeriod
-from metrka_core.quality.models import QualityConfig, QualityGate, QualityOutputFile
-from metrka_core.quality.registry import QualityRegistry
-from metrka_core.quality.runner import run_quality_gate
+from metrka_core.quality.config import QualityConfig
+from metrka_core.quality.gates import RunIds, SilverTable, check_silver_input, check_silver_output
+from metrka_core.quality.models import QualityOutputFile
 from metrka_core.quality.store import QualityCheckStore
 from metrka_core.storage.atomic_writes import atomic_write_text
 from metrka_core.storage.checksums import sha256_file
@@ -83,7 +83,6 @@ def build_silver_table(
     run_id: str,
     pipeline_run_id: str,
     quality_config: QualityConfig,
-    quality_registry: QualityRegistry,
     contract_meta: dict[str, str] | None = None,
     input_format: str = "csv",
     input_kwargs: dict[str, Any] | None = None,
@@ -172,31 +171,25 @@ def build_silver_table(
 
         table_cfg = load_table_cfg(cfg_path, table_key=table_key)
 
-        expected_source_columns = list(table_cfg.get("columns", {}))
+        expected_source_columns = tuple(str(column) for column in table_cfg.get("columns", {}))
 
-        pre_silver_context = {
-            "pipeline_run_id": pipeline_run_id,
-            "dataset_id": dataset_id,
-            "dataset_file_id": bronze_file_id,
-            "run_id": run_id,
-            "bronze_run_id": bronze_run_id,
-            "silver_run_id": run_id,
-            "silver_build_id": silver_build_id,
-            "table_key": table_key,
-            "source_file_name": source_file_name,
-            "input_file_path": input_file_path,
-            "input_format": input_format,
-            "table": df,
-            "expected_columns": expected_source_columns,
-            "allow_extra_columns": True,
-        }
+        quality_ids = RunIds(
+            dataset_id=dataset_id,
+            run_id=run_id,
+            pipeline_run_id=pipeline_run_id,
+            dataset_file_id=bronze_file_id,
+            silver_build_id=silver_build_id,
+        )
 
-        pre_quality = run_quality_gate(
-            quality_store=quality_store,
-            config=quality_config,
-            gate=QualityGate.PRE_SILVER,
-            context=pre_silver_context,
-            registry=quality_registry,
+        pre_quality = check_silver_input(
+            SilverTable(
+                table_key=table_key,
+                frame=df,
+                expected_columns=expected_source_columns,
+                source_file_name=source_file_name,
+            ),
+            ids=quality_ids,
+            store=quality_store,
         )
 
         if pre_quality.failed:
@@ -277,8 +270,6 @@ def build_silver_table(
         output_row_count = len(table)
         output_column_count = len(table.columns)
 
-        expected_output_columns = canonical_columns
-
         quality_output_files = tuple(
             QualityOutputFile(
                 local_path=path, workspace_relative_path=silver_store.relative_path(path)
@@ -286,31 +277,18 @@ def build_silver_table(
             for path in saved_paths
         )
 
-        post_silver_context = {
-            "pipeline_run_id": pipeline_run_id,
-            "dataset_id": dataset_id,
-            "dataset_file_id": bronze_file_id,
-            "run_id": run_id,
-            "bronze_run_id": bronze_run_id,
-            "silver_run_id": run_id,
-            "silver_build_id": silver_build_id,
-            "table_key": table_key,
-            "source_file_name": source_file_name,
-            "table": table,
-            "expected_columns": expected_output_columns,
-            "allow_extra_columns": False,
-            "output_required": True,
-            "output_files": quality_output_files,
-            "storage_zone": "silver_staging",
-            "silver_staging_path": silver_store.relative_path(target_path.parent),
-        }
-
-        post_quality = run_quality_gate(
-            quality_store=quality_store,
+        post_quality = check_silver_output(
+            SilverTable(
+                table_key=table_key,
+                frame=table,
+                expected_columns=tuple(canonical_columns),
+                source_file_name=source_file_name,
+                output_files=quality_output_files,
+                as_of=silver_processed_at.date(),
+            ),
             config=quality_config,
-            gate=QualityGate.POST_SILVER,
-            context=post_silver_context,
-            registry=quality_registry,
+            ids=quality_ids,
+            store=quality_store,
         )
 
         if post_quality.failed:

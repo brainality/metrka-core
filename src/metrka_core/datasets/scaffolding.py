@@ -24,7 +24,6 @@ from metrka_core.pipeline.composition.workspace_locations import (
 from metrka_core.pipeline.config import RuntimeEnvironment, resolve_runtime_environment
 from metrka_core.pipeline.models import parse_pipeline_spec
 from metrka_core.quality.config import parse_quality_config
-from metrka_core.quality.registry import create_default_quality_registry
 from metrka_core.storage.atomic_writes import atomic_write_text
 from metrka_core.storage.workspace_initializer import LocalWorkspaceInitializer
 from metrka_core.storage.workspace_layout import WorkspaceLayout
@@ -105,7 +104,7 @@ def initialize_workspace(
         source_name=normalized_source_name,
         download_url=normalized_download_url,
     )
-    quality_config = _quality_config(workspace_name=normalized_workspace_name)
+    quality_config = _quality_config()
     _validate_generated_configuration(source_config=source_config, quality_config=quality_config)
 
     owned_roots: tuple[Path, ...] = ()
@@ -324,49 +323,10 @@ def _source_config(
     }
 
 
-def _quality_config(*, workspace_name: str) -> dict[str, object]:
-    return {
-        "version": 1,
-        "gates": {
-            "pre_bronze": [
-                {
-                    "id": f"{workspace_name}.source_asset.file_size_min",
-                    "type": "file_size_min",
-                    "severity": "blocking",
-                    "params": {"min_bytes": 1},
-                },
-                {
-                    "id": f"{workspace_name}.source_asset.sha256_recorded",
-                    "type": "sha256_recorded",
-                    "severity": "blocking",
-                },
-            ],
-            "post_bronze": [
-                {
-                    "id": f"{workspace_name}.bronze.output_files_created",
-                    "type": "output_files_created",
-                    "severity": "blocking",
-                    "params": {"min_files": 1, "min_file_bytes": 1},
-                }
-            ],
-            "pre_silver": [
-                {
-                    "id": f"{workspace_name}.silver.input.has_data_rows",
-                    "type": "has_data_rows",
-                    "severity": "blocking",
-                    "params": {"min_rows": 1},
-                }
-            ],
-            "post_silver": [
-                {
-                    "id": f"{workspace_name}.silver.output.has_data_rows",
-                    "type": "has_data_rows",
-                    "severity": "blocking",
-                    "params": {"min_rows": 1},
-                }
-            ],
-        },
-    }
+def _quality_config() -> dict[str, object]:
+    # Built-in checks run automatically. Add data rules under "tables" once the
+    # workspace has a Silver contract.
+    return {"version": 2}
 
 
 def _validate_generated_configuration(
@@ -378,8 +338,7 @@ def _validate_generated_configuration(
         raise TypeError("Generated pipeline configuration must be a mapping")
 
     parse_pipeline_spec(pipeline)
-    parsed_quality = parse_quality_config(quality_config, source="<workspace scaffold>")
-    create_default_quality_registry().validate_specs(parsed_quality.checks)
+    parse_quality_config(quality_config, source="<workspace scaffold>")
 
 
 def _yaml_text(value: object) -> str:

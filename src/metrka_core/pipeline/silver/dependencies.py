@@ -21,8 +21,7 @@ from metrka_core.pipeline.silver.engine_store import SilverEngineReleaseStore
 from metrka_core.pipeline.silver.publication_decision_unit_of_work import (
     SilverPublicationDecisionUnitOfWork,
 )
-from metrka_core.quality.models import QualityConfig
-from metrka_core.quality.registry import QualityRegistry
+from metrka_core.quality.config import QualityConfig
 from metrka_core.quality.store import QualityCheckStore
 from metrka_core.storage.bronze_store import BronzeArtifactStore
 from metrka_core.storage.config_store import ConfigStore
@@ -83,7 +82,6 @@ class SilverProcessDeps:
     build_ids: SilverBuildIdGenerator
     source_config: SourceConfig
     quality_config: QualityConfig
-    quality_registry: QualityRegistry
     engine: SilverEngineDeps
     inputs: SilverInputDeps
     contracts: SilverContractDeps

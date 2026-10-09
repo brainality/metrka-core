@@ -10,9 +10,8 @@ from metrka_core.datasets.source_config import SourceConfig, load_source_config
 from metrka_core.pipeline.acquisition.source_capture_ids import SourceCaptureIdGenerator
 from metrka_core.pipeline.config import parse_quality_settings
 from metrka_core.pipeline.runtime_services import Clock
-from metrka_core.quality.config import load_quality_config
-from metrka_core.quality.models import QualityConfig
-from metrka_core.quality.registry import QualityRegistry, create_default_quality_registry
+from metrka_core.pipeline.silver.task_factory import load_silver_contracts
+from metrka_core.quality.config import QualityConfig, load_quality_config, validate_quality_config
 from metrka_core.storage.bronze_store import BronzeArtifactStore, LocalBronzeArtifactStore
 from metrka_core.storage.config_store import ConfigStore, LocalConfigStore
 from metrka_core.storage.contract_store import ContractSnapshotStore, LocalContractSnapshotStore
@@ -37,7 +36,6 @@ class WorkspaceComposition:
     contract_store: ContractSnapshotStore
     source_config: SourceConfig
     quality_config: QualityConfig
-    quality_registry: QualityRegistry
 
 
 def build_workspace_composition(
@@ -99,13 +97,13 @@ def build_workspace_composition(
 
     quality_config = load_quality_config(config_store.path(name=quality_settings.config))
 
-    quality_registry = create_default_quality_registry()
-    quality_registry.validate_specs(quality_config.checks)
+    validate_quality_config(
+        quality_config,
+        load_silver_contracts(source_config=source_config, config_store=config_store).values(),
+    )
 
     logger.info(
-        "Loaded quality config %s with %d checks",
-        quality_settings.config,
-        len(quality_config.checks),
+        "Loaded quality config %s with %d rules", quality_settings.config, quality_config.rule_count
     )
 
     return WorkspaceComposition(
@@ -118,5 +116,4 @@ def build_workspace_composition(
         contract_store=contract_store,
         source_config=source_config,
         quality_config=quality_config,
-        quality_registry=quality_registry,
     )

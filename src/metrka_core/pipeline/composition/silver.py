@@ -118,7 +118,6 @@ def build_silver_composition(
         build_ids=build_ids,
         source_config=workspace.source_config,
         quality_config=workspace.quality_config,
-        quality_registry=workspace.quality_registry,
         engine=SilverEngineDeps(runtime=silver_engine, release_store=silver_engine_releases),
         inputs=SilverInputDeps(
             bronze_store=workspace.bronze_store,

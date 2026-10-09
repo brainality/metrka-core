@@ -106,7 +106,6 @@ def build_silver_candidate_execution_deps(deps: SilverProcessDeps) -> SilverCand
         transformation_impact_store=deps.evidence.transformation_impact_store,
         transformation_impact_ids=deps.evidence.transformation_impact_ids,
         quality_config=deps.quality_config,
-        quality_registry=deps.quality_registry,
     )
 
     finalization_boundary = SilverBuildFinalizationDeps(

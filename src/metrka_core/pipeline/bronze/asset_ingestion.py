@@ -29,9 +29,14 @@ from metrka_core.pipeline.bronze.xlsx_batch_preparation import (
 )
 from metrka_core.pipeline.models import LandedAsset
 from metrka_core.pipeline.runtime_services import Clock
-from metrka_core.quality.models import QualityConfig, QualityGate, QualityOutputFile
-from metrka_core.quality.registry import QualityRegistry
-from metrka_core.quality.runner import run_quality_gate
+from metrka_core.quality.gates import (
+    BronzeOutput,
+    LandedFile,
+    RunIds,
+    check_bronze_output,
+    check_landed_file,
+)
+from metrka_core.quality.models import QualityOutputFile
 from metrka_core.quality.store import QualityCheckStore
 from metrka_core.storage.bronze_store import BronzeArtifactStore
 
@@ -51,8 +56,6 @@ class BronzeIngestDeps:
     execution_logs: ExecutionLogStore
     quality_checks: QualityCheckStore
     file_marshal_store: FileMarshalStore
-    quality_config: QualityConfig
-    quality_registry: QualityRegistry
 
 
 def _group_landed_assets_by_stream(assets: list[LandedAsset]) -> dict[str, tuple[LandedAsset, ...]]:
@@ -116,47 +119,32 @@ def _persist_xlsx_asset_batch(
     dataset_file_id = deps.dataset_file_ids.new_dataset_file_id()
 
     fingerprint_members = {member.filename: member for member in fingerprint.members}
+    quality_ids = RunIds(
+        dataset_id=dataset_id,
+        run_id=bronze_run_id,
+        pipeline_run_id=runtime.pipeline_run_id,
+        dataset_file_id=dataset_file_id,
+    )
 
     for asset in assets:
         member = fingerprint_members[asset.path.name]
 
-        pre_quality_context = {
-            "pipeline_run_id": runtime.pipeline_run_id,
-            "dataset_id": dataset_id,
-            "source_capture_id": asset.source_capture_id,
-            "dataset_file_id": dataset_file_id,
-            "run_id": bronze_run_id,
-            "artifact_role": asset.artifact_role,
-            "is_zip": False,
-            "file_extension": asset.path.suffix.casefold(),
-            "landed_file": asset.path,
-            "xlsx_sheet_name": assembly_config.read_config.sheet_name,
-            "xlsx_header_row": assembly_config.read_config.header_row,
-            "content_hash": member.sha256,
-            "size_bytes": member.size_bytes,
-            "fingerprint_meta": {
-                member.filename: {
-                    "name": member.filename,
-                    "sha256": member.sha256,
-                    "size": member.size_bytes,
-                }
-            },
-            "storage_zone": "landing",
-            "landing_path": deps.bronze_store.relative_path(asset.path),
-            "source_file_name": asset.path.name,
-            "source_last_modified": (
-                asset.source_last_modified.isoformat()
-                if asset.source_last_modified is not None
-                else None
+        pre_quality = check_landed_file(
+            LandedFile(
+                path=asset.path,
+                sha256=member.sha256,
+                fingerprint={
+                    member.filename: {
+                        "name": member.filename,
+                        "sha256": member.sha256,
+                        "size": member.size_bytes,
+                    }
+                },
+                xlsx_sheet_name=assembly_config.read_config.sheet_name,
+                xlsx_header_row=assembly_config.read_config.header_row,
             ),
-        }
-
-        pre_quality = run_quality_gate(
-            quality_store=deps.quality_checks,
-            config=deps.quality_config,
-            gate=QualityGate.PRE_BRONZE,
-            context=pre_quality_context,
-            registry=deps.quality_registry,
+            ids=quality_ids,
+            store=deps.quality_checks,
         )
 
         _raise_if_quality_failed("XLSX batch pre-checks", pre_quality)
@@ -208,25 +196,8 @@ def _persist_xlsx_asset_batch(
         workspace_relative_path=deps.bronze_store.relative_path(prepared.output_path),
     )
 
-    post_quality = run_quality_gate(
-        quality_store=deps.quality_checks,
-        config=deps.quality_config,
-        gate=QualityGate.POST_BRONZE,
-        context={
-            "pipeline_run_id": runtime.pipeline_run_id,
-            "dataset_id": dataset_id,
-            "dataset_file_id": dataset_file_id,
-            "run_id": bronze_run_id,
-            "artifact_role": prepared.artifact_role,
-            "storage_zone": "bronze",
-            "bronze_run_id": bronze_run_id,
-            "bronze_run_path": deps.bronze_store.relative_path(bronze_run_dir),
-            "output_required": True,
-            "output_files": (quality_output_file,),
-            "extraction_performed": True,
-            "source_capture_ids": prepared.source_capture_ids,
-        },
-        registry=deps.quality_registry,
+    post_quality = check_bronze_output(
+        BronzeOutput(files=(quality_output_file,)), ids=quality_ids, store=deps.quality_checks
     )
 
     _raise_if_quality_failed("XLSX batch post-checks", post_quality)
@@ -391,8 +362,6 @@ def ingest_landed_assets(
                 bronze_run_ids=deps.bronze_run_ids,
                 artifact_role=asset.artifact_role,
                 source_last_modified=asset.source_last_modified,
-                quality_config=deps.quality_config,
-                quality_registry=deps.quality_registry,
                 pipeline_run_id=runtime.pipeline_run_id,
             )
 

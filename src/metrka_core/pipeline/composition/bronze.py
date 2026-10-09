@@ -40,8 +40,6 @@ def build_bronze_composition(
         execution_logs=metadata.execution_logs,
         quality_checks=metadata.quality_checks,
         file_marshal_store=metadata.file_marshal_store,
-        quality_config=workspace.quality_config,
-        quality_registry=workspace.quality_registry,
     )
 
     return BronzeComposition(processor=ConfiguredBronzeProcessor(deps=deps))

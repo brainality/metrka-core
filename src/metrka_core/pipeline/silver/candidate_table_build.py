@@ -26,8 +26,7 @@ from metrka_core.pipeline.silver.process_models import (
 )
 from metrka_core.pipeline.silver.silver_builder import build_silver_table
 from metrka_core.pipeline.silver.task_models import SilverTaskConfig
-from metrka_core.quality.models import QualityConfig
-from metrka_core.quality.registry import QualityRegistry
+from metrka_core.quality.config import QualityConfig
 from metrka_core.quality.store import QualityCheckStore
 
 logger = logging.getLogger(__name__)
@@ -45,7 +44,6 @@ class SilverCandidateTableBuildDeps:
     transformation_impact_store: TransformationImpactStore
     transformation_impact_ids: TransformationImpactIdGenerator
     quality_config: QualityConfig
-    quality_registry: QualityRegistry
 
 
 @dataclass(frozen=True)
@@ -116,7 +114,6 @@ def build_candidate_tables(
                 run_id=silver_run_id,
                 pipeline_run_id=runtime.pipeline_run_id,
                 quality_config=deps.quality_config,
-                quality_registry=deps.quality_registry,
                 execution_log_store=deps.execution_log_store,
                 quality_store=deps.quality_store,
                 transformation_impact_store=deps.transformation_impact_store,

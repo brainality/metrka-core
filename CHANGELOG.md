@@ -27,11 +27,24 @@ modules remain implementation details unless they are listed in
 
 ### Changed
 
+- Replaced the quality configuration with version 2. `quality.yaml` now lists
+  only data rules per Silver table and published column (`not_null`, `unique`,
+  `min`, `max`, `between`, `allowed`); file, format, row, schema, and output
+  checks run automatically at each gate. Version 1 files are rejected.
+- Quality check IDs are generated as `<dataset_id>.<gate>.<check>`, with the
+  table key and column added for Silver checks.
+- Workspace validation and runtime composition reject quality rules that name
+  tables or columns absent from the Silver contracts, and numeric rules on
+  non-numeric columns.
+- Removed `QualityRegistry`, the generic gate runner, and the mapping-based
+  check input in favor of one function per gate.
 - Identify source-capture asset bindings by capture, stream, and relative path,
   allowing multiple physical source files to produce one Bronze dataset file.
 
 ### Fixed
 
+- A ZIP whose members did not change no longer blocks Bronze ingestion with
+  `QUALITY_GATE_ALL_CHECKS_SKIPPED`; the output check is recorded as skipped.
 - Reject XLSX Bronze batches when source column names or their order differ,
   instead of silently combining incompatible columns.
 - Publish only the contract's canonical columns in Silver data files and

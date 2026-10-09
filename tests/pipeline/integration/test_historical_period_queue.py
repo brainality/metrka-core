@@ -249,40 +249,7 @@ tables:
         encoding="utf-8",
     )
 
-    (config_dir / "quality.yaml").write_text(
-        """
-version: 1
-gates:
-  pre_bronze:
-    - id: source.file_size
-      type: file_size_min
-      severity: blocking
-      params:
-        min_bytes: 1
-    - id: source.sha256
-      type: sha256_recorded
-      severity: blocking
-  post_bronze:
-    - id: bronze.output_files
-      type: output_files_created
-      severity: blocking
-  pre_silver:
-    - id: silver.input_rows
-      type: has_data_rows
-      severity: blocking
-    - id: silver.input_columns
-      type: expected_columns_present
-      severity: blocking
-  post_silver:
-    - id: silver.output_rows
-      type: has_data_rows
-      severity: blocking
-    - id: silver.output_columns
-      type: expected_columns_present
-      severity: blocking
-""".lstrip(),
-        encoding="utf-8",
-    )
+    (config_dir / "quality.yaml").write_text("version: 2\n", encoding="utf-8")
 
     return (
         DeterministicWorkspace(

@@ -128,13 +128,18 @@ programming error and raises `TypeError`.
 
 ## Quality check extensibility
 
-Metrka Core 1.0 supports configuring the built-in quality checks through
-workspace quality configuration.
+Metrka Core runs built-in checks at every pipeline gate automatically: the
+landed file is not empty and has a recorded SHA-256, ZIP and XLSX files are
+intact, tables have rows and match their contract columns, and output files
+exist. A workspace's `conf/quality.yaml` (version 2) adds data rules per Silver
+table and published column: `not_null`, `unique`, `min`, `max`, `between`, and
+`allowed`, each with an optional `severity`. Workspace validation rejects rules
+that name tables or columns the Silver contracts do not publish.
 
-Custom Python quality-check implementations and custom `QualityRegistry`
-instances are not part of the public extension API in version 1.0.
-`metrka_core.quality.registry` and its registration mechanisms remain internal
-implementation details and may change without compatibility guarantees.
+Custom Python quality-check implementations are not part of the public
+extension API. The check functions and gate functions in `metrka_core.quality`
+remain internal implementation details and may change without compatibility
+guarantees.
 
 Public Gold-layer and custom quality-check extension points may be introduced in
 a future release together with bootstrap, workspace-validation, and runtime
@@ -173,8 +178,8 @@ Full pipeline execution requires a reachable PostgreSQL metadata database
 with the current Metrka metadata schema.
 
 Quality gates are configured as part of the pipeline and executed by
-`metrka-core`. The internal quality runner and registry are not independent
-public execution APIs.
+`metrka-core`. The internal quality gate functions are not independent public
+execution APIs.
 
 
 ## Workspace initialization
