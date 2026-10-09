@@ -61,9 +61,11 @@ def test_initialize_workspace_creates_and_registers_portable_workspace(tmp_path:
     source_config = load_source_config(result.main_config_path, expected_ws_name="example_dataset")
     assert set(source_config.streams) == {"data"}
     assert source_config.streams["data"].official_filename == "source.csv"
-    assert source_config.streams["data"].extra["download_url"] == (
-        "https://example.org/files/source.csv"
-    )
+    assert source_config.streams["data"].extra == {
+        "download_url": "https://example.org/files/source.csv"
+    }
+    main_config = yaml.safe_load(result.main_config_path.read_text(encoding="utf-8"))
+    assert "source" not in main_config
 
     pipeline = parse_pipeline_spec(source_config.pipeline)
     assert pipeline.acquisition.extractor == "http.files"
@@ -72,7 +74,10 @@ def test_initialize_workspace_creates_and_registers_portable_workspace(tmp_path:
     quality = load_quality_config(result.quality_config_path)
     assert quality.tables == {}
     assert (workspace_root / ".gitignore").read_text(encoding="utf-8") == "data/\n"
-    assert "Bronze" in (workspace_root / "README.md").read_text(encoding="utf-8")
+    readme = (workspace_root / "README.md").read_text(encoding="utf-8")
+    assert "Bronze" in readme
+    assert "Source: Example Open Data." in readme
+    assert "`meta` block" in readme
 
 
 def test_initialize_workspace_uses_environment_workspace_config_path(
