@@ -20,12 +20,10 @@ from metrka_core.pipeline.config import (
 from metrka_core.pipeline.default_registry import create_core_registry
 from metrka_core.pipeline.models import parse_pipeline_spec
 from metrka_core.pipeline.registry import PipelineRegistry
-from metrka_core.pipeline.silver.task_factory import build_silver_tasks
-from metrka_core.quality.config import load_quality_config
-from metrka_core.quality.registry import create_default_quality_registry
+from metrka_core.pipeline.silver.task_factory import load_silver_contracts
+from metrka_core.quality.config import load_quality_config, validate_quality_config
 from metrka_core.storage.config_store import LocalConfigStore
 from metrka_core.storage.workspace_layout import WorkspaceLayout
-from metrka_core.transform.validation import validate_contract_file
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,22 +115,8 @@ def validate_workspace(
     quality_settings = parse_quality_settings(source_config.pipeline.get("quality"))
     quality_config_path = config_store.path(name=quality_settings.config)
     quality_config = load_quality_config(quality_config_path)
-    create_default_quality_registry().validate_specs(quality_config.checks)
-
-    contract_paths: list[Path] = []
-
-    if any(step.action == "silver.process" for step in pipeline.steps):
-        seen_contract_paths: set[Path] = set()
-
-        for task in build_silver_tasks(source_config=source_config):
-            contract_path = config_store.path(name=task.yaml_contract_name)
-
-            if contract_path in seen_contract_paths:
-                continue
-
-            validate_contract_file(contract_path)
-            seen_contract_paths.add(contract_path)
-            contract_paths.append(contract_path)
+    contracts = load_silver_contracts(source_config=source_config, config_store=config_store)
+    validate_quality_config(quality_config, contracts.values())
 
     return WorkspaceValidationResult(
         workspace_name=normalized_workspace_name,
@@ -144,6 +128,6 @@ def validate_workspace(
         extractor=pipeline.acquisition.extractor,
         stream_names=tuple(source_config.streams),
         pipeline_actions=tuple(step.action for step in pipeline.steps),
-        quality_check_count=len(quality_config.checks),
-        silver_contract_paths=tuple(contract_paths),
+        quality_check_count=quality_config.rule_count,
+        silver_contract_paths=tuple(contracts),
     )

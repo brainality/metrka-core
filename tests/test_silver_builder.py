@@ -11,8 +11,7 @@ import pytest
 
 from metrka_core.pipeline.silver.silver_builder import build_silver_table
 from metrka_core.pipeline.silver.version_period import VersionPeriod
-from metrka_core.quality.models import QualityCheckSpec, QualityConfig, QualityGate, QualitySeverity
-from metrka_core.quality.registry import create_default_quality_registry
+from metrka_core.quality.config import QualityConfig
 from metrka_core.storage.silver_store import LocalSilverArtifactStore
 
 SILVER_PROCESSED_AT = datetime(2026, 8, 14, 12, 0, tzinfo=UTC)
@@ -102,32 +101,7 @@ tables:
 
 
 def _quality_config() -> QualityConfig:
-    return QualityConfig(
-        version=1,
-        checks=(
-            QualityCheckSpec(
-                check_id="test-pre-silver-rows",
-                check_type="has_data_rows",
-                gate=QualityGate.PRE_SILVER,
-                severity=QualitySeverity.BLOCKING,
-                params={"min_rows": 1},
-            ),
-            QualityCheckSpec(
-                check_id="test-post-silver-rows",
-                check_type="has_data_rows",
-                gate=QualityGate.POST_SILVER,
-                severity=QualitySeverity.BLOCKING,
-                params={"min_rows": 1},
-            ),
-            QualityCheckSpec(
-                check_id="test-post-silver-output",
-                check_type="output_files_created",
-                gate=QualityGate.POST_SILVER,
-                severity=QualitySeverity.BLOCKING,
-                params={"min_files": 1, "min_file_bytes": 1},
-            ),
-        ),
-    )
+    return QualityConfig()
 
 
 def _build(
@@ -179,7 +153,6 @@ def _build(
         run_id="silver-run-1",
         pipeline_run_id="pipeline-1",
         quality_config=_quality_config(),
-        quality_registry=create_default_quality_registry(),
         input_format=input_format,
         output_formats="csv",
     )
@@ -259,7 +232,7 @@ def test_builder_quality_evidence_uses_workspace_relative_paths(tmp_path: Path) 
         call.args[0] for call in quality_store.insert_quality_check_run.call_args_list
     ]
     output_record = next(
-        record for record in quality_records if record["check_id"] == "test-post-silver-output"
+        record for record in quality_records if record["check_id"].endswith(".output_files_created")
     )
 
     silver_store = _silver_store(tmp_path)

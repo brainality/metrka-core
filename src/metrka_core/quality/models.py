@@ -1,19 +1,17 @@
-"""Shared models for data-quality checks and gates."""
+"""Shared types for data-quality checks and gates."""
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from types import MappingProxyType
 from typing import Any
 
 from metrka_core.storage.portable_paths import validate_portable_relative_path
 
 
 class QualityGate(StrEnum):
-    """Supported pipeline boundaries for quality checks."""
+    """Pipeline boundaries where quality is checked."""
 
     PRE_BRONZE = "pre_bronze"
     POST_BRONZE = "post_bronze"
@@ -21,16 +19,12 @@ class QualityGate(StrEnum):
     POST_SILVER = "post_silver"
 
     @property
-    def timing(self) -> str:
-        return self.value.split("_", maxsplit=1)[0]
-
-    @property
     def layer(self) -> str:
         return self.value.split("_", maxsplit=1)[1]
 
 
 class QualitySeverity(StrEnum):
-    """Effect of a failed check on pipeline execution."""
+    """Effect of a failed check on the pipeline."""
 
     BLOCKING = "blocking"
     WARNING = "warning"
@@ -42,7 +36,7 @@ class QualitySeverity(StrEnum):
 
 
 class QualityStatus(StrEnum):
-    """Possible outcomes of one executed quality check."""
+    """Outcome of one executed check."""
 
     PASSED = "passed"
     FAILED = "failed"
@@ -67,68 +61,29 @@ class QualityOutputFile:
 
 
 @dataclass(frozen=True, slots=True)
-class QualityCheckInput:
-    """Separated runtime facts and declarative parameters for one check."""
+class Outcome:
+    """What one check expected, what it saw, and the verdict."""
 
-    context: Mapping[str, Any]
-    params: Mapping[str, Any]
-    check_id: str
-    quality_gate: QualityGate
-    applies_to: Mapping[str, Any]
+    status: QualityStatus
+    summary: str
+    expected: dict[str, Any] = field(default_factory=dict)
+    actual: dict[str, Any] = field(default_factory=dict)
 
-    def __post_init__(self) -> None:
-        if not self.check_id.strip():
-            raise ValueError("Quality check_id must not be empty")
+    @classmethod
+    def of(
+        cls,
+        passed: bool,
+        summary: str,
+        *,
+        expected: dict[str, Any] | None = None,
+        actual: dict[str, Any] | None = None,
+    ) -> Outcome:
+        status = QualityStatus.PASSED if passed else QualityStatus.FAILED
+        return cls(status, summary, expected or {}, actual or {})
 
-        object.__setattr__(self, "context", MappingProxyType(dict(self.context)))
-        object.__setattr__(self, "params", MappingProxyType(dict(self.params)))
-        object.__setattr__(self, "applies_to", MappingProxyType(dict(self.applies_to)))
-
-
-@dataclass(frozen=True)
-class QualityCheckSpec:
-    """Declarative specification loaded from quality YAML."""
-
-    check_id: str
-    check_type: str
-    gate: QualityGate
-    severity: QualitySeverity
-    name: str | None = None
-    description: str | None = None
-    applies_to: dict[str, Any] = field(default_factory=dict)
-    params: dict[str, Any] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        if not self.check_id.strip():
-            raise ValueError("Quality check_id must not be empty")
-
-        if not self.check_type.strip():
-            raise ValueError("Quality check_type must not be empty")
-
-
-@dataclass(frozen=True)
-class QualityConfig:
-    """Validated collection of checks loaded from one quality YAML."""
-
-    version: int
-    checks: tuple[QualityCheckSpec, ...]
-
-    def checks_for_gate(self, gate: QualityGate) -> tuple[QualityCheckSpec, ...]:
-        return tuple(check for check in self.checks if check.gate is gate)
-
-
-@dataclass(frozen=True)
-class QualityCheckResult:
-    """Result returned by one quality-check implementation."""
-
-    check_type: str
-    status: str
-    expected: dict[str, Any]
-    actual: dict[str, Any]
-    result_summary: str
-    details: dict[str, Any]
-    params: dict[str, Any]
-    duration_ms: int | None = None
+    @classmethod
+    def skipped(cls, summary: str) -> Outcome:
+        return cls(QualityStatus.SKIPPED, summary)
 
 
 @dataclass(frozen=True)

@@ -17,7 +17,6 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 from metrka_core.metadata.artifact import ArtifactRole
 from metrka_core.metadata.bronze_artifact_integrity import (
@@ -34,16 +33,16 @@ from metrka_core.observability.execution_step_scope import run_step
 from metrka_core.observability.stores import ExecutionLogStore
 from metrka_core.pipeline.bronze.models import BronzeIngestResult
 from metrka_core.pipeline.bronze.run_ids import BronzeRunIdGenerator
-from metrka_core.pipeline.bronze.unpack_zip import secure_extract_zip
+from metrka_core.pipeline.bronze.unpack_zip import ZipExtractResult, secure_extract_zip
 from metrka_core.pipeline.runtime_services import Clock
-from metrka_core.quality.models import (
-    QualityConfig,
-    QualityGate,
-    QualityGateResult,
-    QualityOutputFile,
+from metrka_core.quality.gates import (
+    BronzeOutput,
+    LandedFile,
+    RunIds,
+    check_bronze_output,
+    check_landed_file,
 )
-from metrka_core.quality.registry import QualityRegistry
-from metrka_core.quality.runner import run_quality_gate
+from metrka_core.quality.models import QualityGateResult, QualityOutputFile
 from metrka_core.quality.store import QualityCheckStore
 from metrka_core.storage.bronze_store import BronzeArtifactStore
 from metrka_core.storage.checksums import sha256_file
@@ -81,8 +80,6 @@ def ingest_to_bronze(
     artifact_role: ArtifactRole = "data",
     source_capture_id: str | None = None,
     source_last_modified: datetime | None = None,
-    quality_config: QualityConfig,
-    quality_registry: QualityRegistry,
     pipeline_run_id: str | None = None,
 ) -> BronzeIngestResult | None:
     """
@@ -181,38 +178,20 @@ def ingest_to_bronze(
                 }
             }
 
-        quality_context: dict[str, Any] = {
-            "pipeline_run_id": pipeline_run_id,
-            "dataset_id": dataset_id,
-            "source_capture_id": source_capture_id,
-            "dataset_file_id": m_file.dataset_file_id,
-            "run_id": run_id,
-            "artifact_role": artifact_role,
-            "is_zip": is_zip,
-            "file_extension": landed_file.suffix.lower(),
-            "landed_file": landed_file,
-            "content_hash": content_hash,
-            "size_bytes": size_bytes,
-            "fingerprint_meta": fingerprint_meta,
-            "storage_zone": "landing",
-            "landing_path": bronze_store.relative_path(landed_file),
-            "source_file_name": landed_file.name,
-            "source_last_modified": (
-                m_file.source_last_modified.isoformat()
-                if m_file.source_last_modified is not None
-                else None
-            ),
-        }
-
         # ----------------------------------------------------------------
         # 3. Landing → Bronze pre-quality gate
         # ----------------------------------------------------------------
-        pre_quality = run_quality_gate(
-            quality_store=quality_store,
-            config=quality_config,
-            gate=QualityGate.PRE_BRONZE,
-            context=quality_context,
-            registry=quality_registry,
+        quality_ids = RunIds(
+            dataset_id=dataset_id,
+            run_id=run_id,
+            pipeline_run_id=pipeline_run_id,
+            dataset_file_id=m_file.dataset_file_id,
+        )
+
+        pre_quality = check_landed_file(
+            LandedFile(path=landed_file, sha256=content_hash, fingerprint=fingerprint_meta),
+            ids=quality_ids,
+            store=quality_store,
         )
 
         if pre_quality.failed:
@@ -295,14 +274,8 @@ def ingest_to_bronze(
         output_meta = ExecutionStepMeta(
             output_file_count=0, output_byte_count=0, extra={"output_files": []}
         )
-
-        post_bronze_context: dict[str, Any] = {
-            **quality_context,
-            "storage_zone": "bronze",
-            "bronze_run_id": run_id,
-            "bronze_run_path": bronze_store.relative_path(bronze_run_dir),
-            "extraction_performed": False,
-        }
+        extract_result: ZipExtractResult | None = None
+        requested_extract_count = 0
 
         if is_zip:
             if cur_members is None:
@@ -347,19 +320,11 @@ def ingest_to_bronze(
                     members_to_extract=files_to_extract,
                     safe=True,
                 )
+                requested_extract_count = len(files_to_extract)
 
                 output_paths = [
                     bronze_run_dir / file_name for file_name in extract_result.extracted_files
                 ]
-
-                post_bronze_context.update(
-                    {
-                        "extraction_performed": True,
-                        "extract_result": extract_result,
-                        "requested_extract_count": len(files_to_extract),
-                        "safe": True,
-                    }
-                )
 
                 output_meta = ExecutionStepMeta(
                     output_file_count=extract_result.extracted_count,
@@ -413,16 +378,15 @@ def ingest_to_bronze(
             for path in output_paths
         )
 
-        post_bronze_context.update(
-            {"output_required": output_required, "output_files": quality_output_files}
-        )
-
-        post_quality = run_quality_gate(
-            quality_store=quality_store,
-            config=quality_config,
-            gate=QualityGate.POST_BRONZE,
-            context=post_bronze_context,
-            registry=quality_registry,
+        post_quality = check_bronze_output(
+            BronzeOutput(
+                files=quality_output_files,
+                required=output_required,
+                extraction=extract_result,
+                requested_extract_count=requested_extract_count,
+            ),
+            ids=quality_ids,
+            store=quality_store,
         )
 
         if post_quality.failed:

@@ -17,8 +17,6 @@ from metrka_core.metadata.file_marshal_errors import DuplicateSourceFileError
 from metrka_core.metadata.file_marshal_models import MarshaledFile, MarshalEntry, MarshalEvent
 from metrka_core.pipeline.bronze.bronze_ingestion import ingest_to_bronze
 from metrka_core.pipeline.bronze.run_ids import UuidBronzeRunIdGenerator
-from metrka_core.quality.models import QualityCheckSpec, QualityConfig, QualityGate, QualitySeverity
-from metrka_core.quality.registry import create_default_quality_registry
 from metrka_core.storage.bronze_store import LocalBronzeArtifactStore
 
 FROZEN_TIME = datetime(2026, 8, 14, 12, 30, tzinfo=UTC)
@@ -74,28 +72,6 @@ def _bronze_store(tmp_path: Path) -> LocalBronzeArtifactStore:
     )
 
 
-def _quality_config() -> QualityConfig:
-    return QualityConfig(
-        version=1,
-        checks=(
-            QualityCheckSpec(
-                check_id="test-pre-bronze-file-size",
-                check_type="file_size_min",
-                gate=QualityGate.PRE_BRONZE,
-                severity=QualitySeverity.BLOCKING,
-                params={"min_bytes": 1},
-            ),
-            QualityCheckSpec(
-                check_id="test-post-bronze-output",
-                check_type="output_files_created",
-                gate=QualityGate.POST_BRONZE,
-                severity=QualitySeverity.BLOCKING,
-                params={"min_files": 1, "min_file_bytes": 1},
-            ),
-        ),
-    )
-
-
 def _ingest(
     *,
     source: Path,
@@ -119,8 +95,6 @@ def _ingest(
         execution_log_store=execution_store,
         quality_store=resolved_quality_store,
         file_marshal_store=marshal_store,  # type: ignore[arg-type]
-        quality_config=_quality_config(),
-        quality_registry=create_default_quality_registry(),
         pipeline_run_id="pipeline-1",
     )
 
@@ -147,7 +121,9 @@ def test_flat_file_quality_evidence_uses_workspace_relative_paths(tmp_path: Path
         call.args[0] for call in quality_store.insert_quality_check_run.call_args_list
     ]
     output_record = next(
-        record for record in quality_records if record["check_id"] == "test-post-bronze-output"
+        record
+        for record in quality_records
+        if record["check_id"].endswith(".post_bronze.output_files_created")
     )
 
     bronze_file = bronze_store.run_dir(run_id=result.bronze_run_id) / "source.csv"

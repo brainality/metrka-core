@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
+from typing import Any
 
 from metrka_core.catalog.temporal_coverage import parse_temporal_coverage_spec
 from metrka_core.datasets.source_config import SourceConfig
 from metrka_core.pipeline.action_runtime import ActionRuntime
+from metrka_core.pipeline.models import parse_pipeline_spec
 from metrka_core.pipeline.silver.config_fingerprints import calculate_config_hash
 from metrka_core.pipeline.silver.dependencies import SilverProcessDeps
 from metrka_core.pipeline.silver.process_models import SilverProcessResult
@@ -16,7 +19,9 @@ from metrka_core.pipeline.silver.version_period import (
     build_version_period_discovery,
     parse_version_period_spec,
 )
+from metrka_core.storage.config_store import ConfigStore
 from metrka_core.storage.table_formats import SUPPORTED_TABLE_FORMATS
+from metrka_core.transform.validation import validate_contract_file
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +169,27 @@ def build_silver_tasks(*, source_config: SourceConfig) -> list[SilverTaskConfig]
         )
 
     return tasks
+
+
+def load_silver_contracts(
+    *, source_config: SourceConfig, config_store: ConfigStore
+) -> dict[Path, dict[str, Any]]:
+    """Validate and load every contract the Silver step will use, keyed by path."""
+
+    pipeline = parse_pipeline_spec(source_config.pipeline)
+
+    if not any(step.action == "silver.process" for step in pipeline.steps):
+        return {}
+
+    contracts: dict[Path, dict[str, Any]] = {}
+
+    for task in build_silver_tasks(source_config=source_config):
+        path = config_store.path(name=task.yaml_contract_name)
+
+        if path not in contracts:
+            contracts[path] = validate_contract_file(path)
+
+    return contracts
 
 
 def process_configured_silver(

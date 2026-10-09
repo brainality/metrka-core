@@ -1,52 +1,115 @@
-"""Load and validate declarative data-quality configuration."""
+"""Read a dataset's quality rules from quality.yaml.
+
+Format (version 1)::
+
+    version: 1
+    tables:
+      <table_key>:
+        unique: [geography_name, reporting_year]   # optional
+        columns:
+          <published column>:
+            - not_null
+            - unique
+            - min: 0
+            - max: 100
+            - between: [1990, 2030]
+            - allowed: [a, b]
+            - forbidden: [Florida]
+            - {min: 0, severity: warning}
+
+Rules run on the finished Silver table. Checks every dataset needs (file is not
+empty, archive is valid, table has rows, columns match the contract, output
+files exist) run automatically and are not written here.
+"""
 
 from __future__ import annotations
 
+import re
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
+from pydantic import BaseModel, ConfigDict, ValidationError
 
-from metrka_core.quality.models import QualityCheckSpec, QualityConfig, QualityGate, QualitySeverity
+from metrka_core.quality.models import QualitySeverity
+from metrka_core.transform.ops.casting import parse_decimal_cast_type
 
-_ROOT_KEYS = frozenset({"version", "gates"})
+FLAG_RULES = frozenset({"not_null", "is_null", "unique"})
+VALUE_RULES = frozenset({"min", "max", "between", "allowed", "forbidden", "pattern"})
+NUMERIC_RULES = frozenset({"min", "max", "between"})
+NUMERIC_CAST_TYPES = frozenset({"int", "float"})
+CURRENT_YEAR = "current_year"
 
-_CHECK_KEYS = frozenset({"id", "type", "severity", "name", "description", "applies_to", "params"})
 
-_APPLIES_TO_KEYS_BY_GATE: dict[QualityGate, frozenset[str]] = {
-    QualityGate.PRE_BRONZE: frozenset(
-        {
-            "artifact_role",
-            "dataset_id",
-            "file_extension",
-            "is_zip",
-            "source_file_name",
-            "storage_zone",
-        }
-    ),
-    QualityGate.POST_BRONZE: frozenset(
-        {
-            "artifact_role",
-            "dataset_id",
-            "extraction_performed",
-            "file_extension",
-            "is_zip",
-            "output_required",
-            "source_file_name",
-            "storage_zone",
-        }
-    ),
-    QualityGate.PRE_SILVER: frozenset(
-        {"dataset_id", "input_format", "source_file_name", "table_key"}
-    ),
-    QualityGate.POST_SILVER: frozenset(
-        {"dataset_id", "source_file_name", "storage_zone", "table_key"}
-    ),
-}
+@dataclass(frozen=True, slots=True)
+class ColumnRule:
+    """One rule for one column, e.g. ``min: 0``."""
+
+    rule: str
+    value: Any = None
+    severity: QualitySeverity = QualitySeverity.BLOCKING
+
+
+@dataclass(frozen=True, slots=True)
+class WhenRules:
+    """Column rules for the rows that match ``rows``, e.g. ``geography_name: Unallocated``."""
+
+    rows: Mapping[str, Any]
+    columns: Mapping[str, tuple[ColumnRule, ...]]
+
+
+@dataclass(frozen=True, slots=True)
+class TableRules:
+    """Rules for one Silver table."""
+
+    unique: tuple[str, ...] = ()
+    columns: Mapping[str, tuple[ColumnRule, ...]] = field(default_factory=dict)
+    when: tuple[WhenRules, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class QualityConfig:
+    """All quality rules of one workspace, by table key."""
+
+    version: int = 1
+    tables: Mapping[str, TableRules] = field(default_factory=dict)
+
+    @property
+    def rule_count(self) -> int:
+        return sum(
+            (1 if rules.unique else 0)
+            + sum(len(column) for column in rules.columns.values())
+            + sum(len(column) for block in rules.when for column in block.columns.values())
+            for rules in self.tables.values()
+        )
+
+
+class _WhenModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    rows: dict[str, str | int | float | bool]
+    columns: dict[str, list[str | dict[str, Any]]]
+
+
+class _TableModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    unique: list[str] = []
+    columns: dict[str, list[str | dict[str, Any]]] = {}
+    when: list[_WhenModel] = []
+
+
+class _ConfigModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    version: Literal[1]
+    tables: dict[str, _TableModel] = {}
 
 
 def load_quality_config(path: Path) -> QualityConfig:
-    """Load and validate one quality YAML file."""
+    """Load and validate one quality.yaml file."""
 
     if not path.exists():
         raise FileNotFoundError(f"Quality config does not exist: {path}")
@@ -62,176 +125,160 @@ def load_quality_config(path: Path) -> QualityConfig:
 def parse_quality_config(raw: object, *, source: str = "<memory>") -> QualityConfig:
     """Validate an already parsed quality configuration."""
 
-    if not isinstance(raw, dict):
-        raise ValueError(f"Quality config root must be a mapping: {source}")
+    try:
+        model = _ConfigModel.model_validate(raw)
+    except ValidationError as exc:
+        raise ValueError(f"Invalid quality config {source}: {exc}") from exc
 
-    unexpected_root_keys = set(raw) - _ROOT_KEYS
+    tables = {}
 
-    if unexpected_root_keys:
-        raise ValueError(
-            f"Unsupported quality config fields in {source}: {sorted(unexpected_root_keys)}"
+    for table_key, table in model.tables.items():
+        where = f"{source}: tables.{table_key}"
+        when = []
+
+        for i, block in enumerate(table.when):
+            if not block.rows:
+                raise ValueError(f"'rows' needs at least one column at {where}.when[{i}]")
+
+            columns = _parse_columns(block.columns, where=f"{where}.when[{i}]")
+            when.append(WhenRules(rows=dict(block.rows), columns=columns))
+
+        tables[table_key] = TableRules(
+            unique=tuple(table.unique),
+            columns=_parse_columns(table.columns, where=where),
+            when=tuple(when),
         )
 
-    version = raw.get("version")
+    return QualityConfig(version=model.version, tables=tables)
 
-    if isinstance(version, bool) or not isinstance(version, int) or version != 1:
-        raise ValueError(f"Quality config version must be integer 1: {source}")
 
-    gates = raw.get("gates")
+def _parse_columns(
+    columns: dict[str, list[str | dict[str, Any]]], *, where: str
+) -> dict[str, tuple[ColumnRule, ...]]:
+    return {
+        column: tuple(
+            _parse_rule(item, where=f"{where}.columns.{column}[{i}]")
+            for i, item in enumerate(items)
+        )
+        for column, items in columns.items()
+    }
 
-    if not isinstance(gates, dict):
-        raise ValueError(f"Quality config gates must be a mapping: {source}")
 
-    checks: list[QualityCheckSpec] = []
-    known_check_ids: set[str] = set()
-    configured_gates: set[QualityGate] = set()
+def _parse_rule(item: str | dict[str, Any], *, where: str) -> ColumnRule:
+    """Read ``not_null``, ``{min: 0}`` or ``{min: 0, severity: warning}``."""
 
-    for gate_name, raw_checks in gates.items():
-        if not isinstance(gate_name, str):
-            raise ValueError(f"Quality gate name must be a string: {source}")
+    if isinstance(item, str):
+        if item not in FLAG_RULES:
+            raise ValueError(f"Unknown rule {item!r} at {where}; use one of {sorted(FLAG_RULES)}")
+        return ColumnRule(rule=item)
 
+    options = dict(item)
+
+    try:
+        severity = QualitySeverity(options.pop("severity", QualitySeverity.BLOCKING))
+    except ValueError as exc:
+        known = [level.value for level in QualitySeverity]
+        raise ValueError(f"Unknown severity at {where}; use one of {known}") from exc
+
+    if len(options) != 1:
+        raise ValueError(f"Write exactly one rule per item at {where}: {item!r}")
+
+    ((rule, value),) = options.items()
+
+    if rule in FLAG_RULES:
+        if value is not True:
+            raise ValueError(f"Rule {rule!r} takes the value true at {where}")
+        return ColumnRule(rule=rule, severity=severity)
+
+    if rule not in VALUE_RULES:
+        known = sorted(FLAG_RULES | VALUE_RULES)
+        raise ValueError(f"Unknown rule {rule!r} at {where}; use one of {known}")
+
+    if rule in {"min", "max"} and not _is_bound(value):
+        raise ValueError(f"Rule {rule!r} needs a number or {CURRENT_YEAR!r} at {where}")
+
+    if rule == "between":
+        if not (isinstance(value, list) and len(value) == 2 and all(map(_is_bound, value))):
+            raise ValueError(f"Rule 'between' needs [low, high] at {where}")
+        if all(map(_is_number, value)) and value[0] > value[1]:
+            raise ValueError(f"Rule 'between' needs low <= high at {where}")
+        value = tuple(value)
+
+    if rule == "pattern":
+        if not isinstance(value, str):
+            raise ValueError(f"Rule 'pattern' needs a regular expression at {where}")
         try:
-            gate = QualityGate(gate_name)
-        except ValueError as exc:
-            supported = [item.value for item in QualityGate]
-
+            re.compile(value)
+        except re.error as exc:
             raise ValueError(
-                f"Unsupported quality gate {gate_name!r} in {source}; supported gates: {supported}"
+                f"Rule 'pattern' is not a valid regular expression at {where}"
             ) from exc
 
-        configured_gates.add(gate)
+    if rule in {"allowed", "forbidden"}:
+        if not (isinstance(value, list) and value):
+            raise ValueError(f"Rule {rule!r} needs a non-empty list at {where}")
+        value = tuple(value)
 
-        if not isinstance(raw_checks, list):
-            raise ValueError(f"Quality gate {gate_name!r} must contain a list of checks: {source}")
+    return ColumnRule(rule=rule, value=value, severity=severity)
 
-        if not raw_checks:
+
+def _is_number(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _is_bound(value: object) -> bool:
+    return _is_number(value) or value == CURRENT_YEAR
+
+
+def contract_tables(contract: Mapping[str, Any]) -> dict[str, dict[str, str]]:
+    """Map each contract table to its published columns and their cast types."""
+
+    return {
+        str(table_key): {
+            str(column["rename_to"]): str(column["cast_to"])
+            for column in table.get("columns", {}).values()
+        }
+        for table_key, table in contract.get("tables", {}).items()
+    }
+
+
+def validate_quality_config(config: QualityConfig, contracts: Iterable[Mapping[str, Any]]) -> None:
+    """Check that every rule points at a real table and column of the contracts."""
+
+    tables: dict[str, dict[str, str]] = {}
+    for contract in contracts:
+        tables.update(contract_tables(contract))
+
+    for table_key, rules in config.tables.items():
+        if table_key not in tables:
             raise ValueError(
-                f"Quality gate {gate_name!r} must contain at least one check: {source}"
+                f"quality.yaml names table {table_key!r}, which no contract defines; "
+                f"contract tables: {sorted(tables)}"
             )
 
-        for index, raw_check in enumerate(raw_checks):
-            location = f"{source}:gates.{gate_name}[{index}]"
+        columns = tables[table_key]
+        named = [*rules.unique, *rules.columns]
+        column_rules = [*rules.columns.items()]
 
-            if not isinstance(raw_check, dict):
-                raise ValueError(f"Quality check must be a mapping: {location}")
+        for block in rules.when:
+            named += [*block.rows, *block.columns]
+            column_rules += block.columns.items()
 
-            unexpected_check_keys = set(raw_check) - _CHECK_KEYS
-
-            if unexpected_check_keys:
+        for column in named:
+            if column not in columns:
                 raise ValueError(
-                    f"Unsupported quality check fields at "
-                    f"{location}: "
-                    f"{sorted(unexpected_check_keys)}"
+                    f"quality.yaml names column {column!r} in table {table_key!r}, "
+                    f"which the contract does not publish; columns: {sorted(columns)}"
                 )
 
-            check_id = _required_string(raw_check, "id", location)
-            check_type = _required_string(raw_check, "type", location)
-            severity_value = _required_string(raw_check, "severity", location)
-
-            if check_id in known_check_ids:
-                raise ValueError(f"Duplicate quality check id {check_id!r}: {source}")
-
-            known_check_ids.add(check_id)
-
-            try:
-                severity = QualitySeverity(severity_value)
-            except ValueError as exc:
-                supported = [item.value for item in QualitySeverity]
-
-                raise ValueError(
-                    f"Unsupported severity "
-                    f"{severity_value!r} at {location}; "
-                    f"supported values: {supported}"
-                ) from exc
-
-            applies_to = _optional_mapping(raw_check, "applies_to", location)
-            _validate_applies_to(applies_to=applies_to, gate=gate, location=location)
-            params = _optional_mapping(raw_check, "params", location)
-
-            checks.append(
-                QualityCheckSpec(
-                    check_id=check_id,
-                    check_type=check_type,
-                    gate=gate,
-                    severity=severity,
-                    name=_optional_string(raw_check, "name", location),
-                    description=_optional_string(raw_check, "description", location),
-                    applies_to=applies_to,
-                    params=params,
-                )
-            )
-
-    missing_gates = set(QualityGate) - configured_gates
-
-    if missing_gates:
-        raise ValueError(
-            f"Quality config must define every gate in {source}; "
-            f"missing gates: {sorted(gate.value for gate in missing_gates)}"
-        )
-
-    return QualityConfig(version=version, checks=tuple(checks))
+        for column, rules_for_column in column_rules:
+            for rule in rules_for_column:
+                if rule.rule in NUMERIC_RULES and not _is_numeric_cast(columns[column]):
+                    raise ValueError(
+                        f"Rule {rule.rule!r} needs a numeric column, but "
+                        f"{table_key}.{column} is cast to {columns[column]!r}"
+                    )
 
 
-def _validate_applies_to(*, applies_to: dict[str, Any], gate: QualityGate, location: str) -> None:
-    allowed_keys = _APPLIES_TO_KEYS_BY_GATE[gate]
-    unsupported_keys = set(applies_to) - allowed_keys
-
-    if unsupported_keys:
-        raise ValueError(
-            f"Unsupported applies_to fields at {location}: {sorted(unsupported_keys)}; "
-            f"supported fields for {gate.value}: {sorted(allowed_keys)}"
-        )
-
-    for key, value in applies_to.items():
-        if isinstance(value, list):
-            if not value:
-                raise ValueError(f"applies_to.{key} must not be an empty list: {location}")
-
-            if not all(_is_selector_scalar(item) for item in value):
-                raise ValueError(
-                    f"applies_to.{key} list items must be strings, numbers, or booleans: {location}"
-                )
-
-        elif not _is_selector_scalar(value):
-            raise ValueError(
-                f"applies_to.{key} must be a string, number, boolean, or list: {location}"
-            )
-
-
-def _is_selector_scalar(value: object) -> bool:
-    return isinstance(value, (str, int, float, bool))
-
-
-def _required_string(mapping: dict[str, Any], key: str, location: str) -> str:
-    value = mapping.get(key)
-
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"Quality check field {key!r} must be a non-empty string: {location}")
-
-    return value.strip()
-
-
-def _optional_string(mapping: dict[str, Any], key: str, location: str) -> str | None:
-    value = mapping.get(key)
-
-    if value is None:
-        return None
-
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(
-            f"Quality check field {key!r} must be a non-empty string or null: {location}"
-        )
-
-    return value.strip()
-
-
-def _optional_mapping(mapping: dict[str, Any], key: str, location: str) -> dict[str, Any]:
-    if key not in mapping:
-        return {}
-
-    value = mapping[key]
-
-    if not isinstance(value, dict):
-        raise ValueError(f"Quality check field {key!r} must be a mapping: {location}")
-
-    return dict(value)
+def _is_numeric_cast(cast_to: str) -> bool:
+    return cast_to in NUMERIC_CAST_TYPES or parse_decimal_cast_type(cast_to) is not None

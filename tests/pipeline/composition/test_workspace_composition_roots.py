@@ -41,13 +41,6 @@ def test_composition_reads_definitions_and_writes_only_below_data_root(tmp_path:
         clock=services.clock,
         source_capture_ids=services.source_capture_ids,
     )
-    second_composition = build_workspace_composition(
-        workspace_name="example",
-        config_name="main.yaml",
-        workspace_locations=FixedWorkspaceLocationResolver(location),
-        clock=services.clock,
-        source_capture_ids=services.source_capture_ids,
-    )
 
     assert composition.layout.definition_root == definition_root.resolve()
     assert composition.layout.data_root == data_root.resolve()
@@ -56,11 +49,7 @@ def test_composition_reads_definitions_and_writes_only_below_data_root(tmp_path:
     assert composition.silver_store.workspace_root == data_root.resolve()
     assert composition.contract_store.definition_root == definition_root.resolve()
     assert composition.contract_store.data_root == data_root.resolve()
-    assert composition.quality_registry is not second_composition.quality_registry
-    assert (
-        composition.quality_registry.registered_types
-        == second_composition.quality_registry.registered_types
-    )
+    assert composition.quality_config.tables == {}
     contract_path = composition.contract_store.definition_relative_path(config_root / "main.yaml")
     snapshots_path = composition.contract_store.snapshot_relative_path(
         composition.layout.contract_snapshots_dir
@@ -103,40 +92,4 @@ def _source_config() -> dict[str, object]:
 
 
 def _quality_config() -> dict[str, object]:
-    return {
-        "version": 1,
-        "gates": {
-            "pre_bronze": [
-                {
-                    "id": "example.source.file_size_min",
-                    "type": "file_size_min",
-                    "severity": "blocking",
-                    "params": {"min_bytes": 1},
-                }
-            ],
-            "post_bronze": [
-                {
-                    "id": "example.bronze.output_files_created",
-                    "type": "output_files_created",
-                    "severity": "blocking",
-                    "params": {"min_files": 1, "min_file_bytes": 1},
-                }
-            ],
-            "pre_silver": [
-                {
-                    "id": "example.silver.input.has_data_rows",
-                    "type": "has_data_rows",
-                    "severity": "blocking",
-                    "params": {"min_rows": 1},
-                }
-            ],
-            "post_silver": [
-                {
-                    "id": "example.silver.output.has_data_rows",
-                    "type": "has_data_rows",
-                    "severity": "blocking",
-                    "params": {"min_rows": 1},
-                }
-            ],
-        },
-    }
+    return {"version": 1}

@@ -16,8 +16,6 @@ from metrka_core.pipeline.bronze.filename_metadata import (
 from metrka_core.pipeline.bronze.models import BronzeIngestResult
 from metrka_core.pipeline.bronze.xlsx_row_assembly import BronzeAssemblyConfig, XlsxReadConfig
 from metrka_core.pipeline.models import LandedAsset
-from metrka_core.quality.models import QualityCheckSpec, QualityConfig, QualityGate, QualitySeverity
-from metrka_core.quality.registry import create_default_quality_registry
 from metrka_core.storage.bronze_store import LocalBronzeArtifactStore
 
 
@@ -158,32 +156,6 @@ def test_persists_multiple_xlsx_assets_as_one_bronze_file(tmp_path: Path) -> Non
     deps = MagicMock()
     deps.source_config = source_config
     deps.bronze_store = bronze_store
-    deps.quality_config = QualityConfig(
-        version=1,
-        checks=(
-            QualityCheckSpec(
-                check_id="test-xlsx-package-integrity",
-                check_type="xlsx_package_integrity",
-                gate=QualityGate.PRE_BRONZE,
-                severity=QualitySeverity.BLOCKING,
-            ),
-            QualityCheckSpec(
-                check_id="test-xlsx-has-data-rows",
-                check_type="xlsx_has_data_rows",
-                gate=QualityGate.PRE_BRONZE,
-                severity=QualitySeverity.BLOCKING,
-                params={"min_rows": 1},
-            ),
-            QualityCheckSpec(
-                check_id="test-bronze-output-created",
-                check_type="output_files_created",
-                gate=QualityGate.POST_BRONZE,
-                severity=QualitySeverity.BLOCKING,
-                params={"min_files": 1, "min_file_bytes": 1},
-            ),
-        ),
-    )
-    deps.quality_registry = create_default_quality_registry()
     deps.execution_logs = MagicMock()
     deps.quality_checks = MagicMock()
     deps.file_marshal_store = MagicMock()
@@ -242,16 +214,16 @@ def test_persists_multiple_xlsx_assets_as_one_bronze_file(tmp_path: Path) -> Non
         call.args[0] for call in (deps.quality_checks.insert_quality_check_run.call_args_list)
     ]
 
-    assert [record["check_id"] for record in quality_records] == [
-        "test-xlsx-package-integrity",
-        "test-xlsx-has-data-rows",
-        "test-xlsx-package-integrity",
-        "test-xlsx-has-data-rows",
-        "test-bronze-output-created",
+    per_file = ["file_not_empty", "sha256_recorded", "xlsx_package_integrity", "xlsx_has_data_rows"]
+
+    assert [record["check_id"].rsplit(".", 1)[-1] for record in quality_records] == [
+        *per_file,
+        *per_file,
+        "output_files_created",
     ]
 
     data_row_records = [
-        record for record in quality_records if record["check_id"] == "test-xlsx-has-data-rows"
+        record for record in quality_records if record["check_id"].endswith(".xlsx_has_data_rows")
     ]
 
     assert [record["actual"]["row_count"] for record in data_row_records] == [1, 1]

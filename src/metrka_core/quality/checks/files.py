@@ -1,111 +1,123 @@
-"""Reusable filesystem quality checks."""
+"""Checks for a landed source file, run before Bronze."""
 
 from __future__ import annotations
 
-import time
+import re
+from collections.abc import Mapping
+from pathlib import Path
+from typing import Any
 
-from metrka_core.quality.models import QualityCheckInput, QualityCheckResult, QualityOutputFile
+import pandas as pd
+
+from metrka_core.quality.models import Outcome
+from metrka_core.validation.preflight.xlsx_verify import verify_single_xlsx
+from metrka_core.validation.preflight.zip_verify import verify_single_zip
+
+_SHA256 = re.compile(r"[0-9a-f]{64}")
 
 
-def output_files_created(check_input: QualityCheckInput) -> QualityCheckResult:
-    """Verify that a gate produced enough non-empty output files.
+def file_not_empty(path: Path, *, min_bytes: int = 1) -> Outcome:
+    """The file exists and has at least ``min_bytes`` bytes."""
 
-    Supported gates: ``post_bronze`` and ``post_silver``. Runtime context uses
-    ``output_files`` containing
-    :class:`~metrka_core.quality.models.QualityOutputFile` values and optional
-    ``output_required`` (default ``True``). Local paths are used only for runtime
-    filesystem checks; persisted evidence uses workspace-relative paths.
-
-    When output is not required the check returns ``SKIPPED``. Parameters
-    ``min_files`` and ``min_file_bytes`` both default to 1 and must be
-    non-negative.
-    """
-
-    started = time.perf_counter()
-    context = check_input.context
-
-    output_required = bool(context.get("output_required", True))
-    min_files = int(check_input.params.get("min_files", 1))
-    min_file_bytes = int(check_input.params.get("min_file_bytes", 1))
-
-    if min_files < 0:
-        raise ValueError("min_files must be greater than or equal to 0")
-
-    if min_file_bytes < 0:
-        raise ValueError("min_file_bytes must be greater than or equal to 0")
-
-    raw_output_files = context.get("output_files", ())
-
-    if raw_output_files is None:
-        raw_output_files = ()
-
-    if not isinstance(raw_output_files, (list, tuple)):
-        raise TypeError("output_files_created requires 'output_files' to be a list or tuple")
-
-    output_files: list[QualityOutputFile] = []
-
-    for value in raw_output_files:
-        if not isinstance(value, QualityOutputFile):
-            raise TypeError(
-                "output_files_created requires every 'output_files' item to be a QualityOutputFile"
-            )
-
-        output_files.append(value)
-
-    details = {
-        "storage_zone": context.get("storage_zone"),
-        "bronze_run_id": context.get("bronze_run_id"),
-        "bronze_run_path": context.get("bronze_run_path"),
-        "output_required": output_required,
-    }
-
-    if not output_required:
-        return QualityCheckResult(
-            check_type="output_files_created",
-            status="skipped",
-            expected={"output_required": False},
-            actual={"output_file_count": 0, "output_files": []},
-            result_summary=("Output validation skipped because no new Bronze output was required."),
-            details=details,
-            params={"min_files": min_files, "min_file_bytes": min_file_bytes},
-            duration_ms=int((time.perf_counter() - started) * 1000),
+    if not path.is_file():
+        return Outcome.of(
+            False,
+            f"File does not exist: {path.name}",
+            expected={"min_bytes": min_bytes},
+            actual={"file_name": path.name, "exists": False},
         )
 
-    missing_files = [
-        output_file.workspace_relative_path
-        for output_file in output_files
-        if not output_file.local_path.is_file()
-    ]
+    size = path.stat().st_size
 
-    undersized_files = [
-        output_file.workspace_relative_path
-        for output_file in output_files
-        if output_file.local_path.is_file()
-        and output_file.local_path.stat().st_size < min_file_bytes
-    ]
+    return Outcome.of(
+        size >= min_bytes,
+        f"File has {size} bytes; minimum is {min_bytes}.",
+        expected={"min_bytes": min_bytes},
+        actual={"file_name": path.name, "exists": True, "file_size_bytes": size},
+    )
 
-    passed = len(output_files) >= min_files and not missing_files and not undersized_files
 
-    return QualityCheckResult(
-        check_type="output_files_created",
-        status="passed" if passed else "failed",
-        expected={
-            "min_files": min_files,
-            "min_file_bytes": min_file_bytes,
-            "all_files_exist": True,
-        },
+def sha256_recorded(path: Path, sha256: str | None) -> Outcome:
+    """A SHA-256 digest was recorded for the file."""
+
+    passed = sha256 is not None and _SHA256.fullmatch(sha256) is not None
+
+    return Outcome.of(
+        passed,
+        "SHA-256 was recorded." if passed else "SHA-256 is missing or malformed.",
+        expected={"algorithm": "sha256", "hex_length": 64},
+        actual={"file_name": path.name, "sha256": sha256},
+    )
+
+
+def payload_fingerprint_recorded(path: Path, fingerprint: Mapping[str, Any]) -> Outcome:
+    """Files inside the archive were fingerprinted."""
+
+    count = len(fingerprint)
+
+    return Outcome.of(
+        count > 0,
+        f"Fingerprinted {count} archive member(s).",
+        expected={"min_member_count": 1},
+        actual={"file_name": path.name, "member_count": count, "members": sorted(fingerprint)},
+    )
+
+
+def zip_crc_valid(path: Path) -> Outcome:
+    """Every member of the ZIP archive passes CRC verification."""
+
+    result = verify_single_zip(path)
+
+    return Outcome.of(
+        bool(result.passed),
+        "ZIP archive passed CRC verification."
+        if result.passed
+        else f"ZIP archive failed CRC verification: {result.error}",
+        expected={"zip_crc_valid": True},
         actual={
-            "output_file_count": len(output_files),
-            "output_files": [output_file.workspace_relative_path for output_file in output_files],
-            "missing_files": missing_files,
-            "undersized_files": undersized_files,
+            "file_name": path.name,
+            "zip_crc_valid": bool(result.passed),
+            "error": result.error,
         },
-        result_summary=(
-            f"Created {len(output_files)} valid output file(s)."
-            if passed
-            else ("Bronze output files are missing, empty, or fewer than expected.")
-        ),
-        details=details,
-        params={"min_files": min_files, "min_file_bytes": min_file_bytes},
-        duration_ms=int((time.perf_counter() - started) * 1000),
+    )
+
+
+def xlsx_package_integrity(path: Path) -> Outcome:
+    """The XLSX file is a readable Excel package with at least one worksheet."""
+
+    result = verify_single_xlsx(path)
+
+    return Outcome.of(
+        result.passed,
+        "XLSX package is valid." if result.passed else f"XLSX package is invalid: {result.error}",
+        expected={"valid_xlsx_package": True, "min_worksheets": 1},
+        actual={
+            "file_name": path.name,
+            "valid_xlsx_package": result.passed,
+            "crc_ok": result.crc_ok,
+            "missing_members": list(result.missing_members),
+            "worksheet_count": result.worksheet_count,
+            "error": result.error,
+        },
+    )
+
+
+def xlsx_has_data_rows(
+    path: Path, *, sheet_name: str | int, header_row: int, min_rows: int = 1
+) -> Outcome:
+    """The configured XLSX sheet has at least ``min_rows`` non-empty rows."""
+
+    frame = pd.read_excel(path, sheet_name=sheet_name, header=header_row)
+    row_count = len(frame.dropna(axis="index", how="all").index)
+
+    return Outcome.of(
+        row_count >= min_rows,
+        f"XLSX sheet has {row_count} data row(s); minimum is {min_rows}.",
+        expected={"min_rows": min_rows},
+        actual={
+            "file_name": path.name,
+            "row_count": row_count,
+            "sheet_name": sheet_name,
+            "header_row": header_row,
+        },
     )

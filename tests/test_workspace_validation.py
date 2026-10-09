@@ -35,7 +35,7 @@ def test_validate_workspace_checks_bronze_ready_scaffold_without_writing(tmp_pat
     assert result.pipeline_actions == ("bronze.ingest",)
     assert result.stream_count == 1
     assert result.action_count == 1
-    assert result.quality_check_count == 5
+    assert result.quality_check_count == 0
     assert result.silver_contract_paths == ()
     assert result.silver_contract_count == 0
     assert _snapshot(initialized.workspace_root) == before

@@ -16,7 +16,6 @@ from metrka_core.datasets.yaml_workspace_resolver import YamlWorkspaceLocationRe
 from metrka_core.pipeline.config import RuntimeConfigError
 from metrka_core.pipeline.models import parse_pipeline_spec
 from metrka_core.quality.config import load_quality_config
-from metrka_core.quality.models import QualityGate
 from metrka_core.storage.workspace_initializer import LocalWorkspaceInitializer
 from metrka_core.storage.workspace_layout import WorkspaceLayout
 
@@ -71,7 +70,7 @@ def test_initialize_workspace_creates_and_registers_portable_workspace(tmp_path:
     assert [step.action for step in pipeline.steps] == ["bronze.ingest"]
 
     quality = load_quality_config(result.quality_config_path)
-    assert {check.gate for check in quality.checks} == set(QualityGate)
+    assert quality.tables == {}
     assert (workspace_root / ".gitignore").read_text(encoding="utf-8") == "data/\n"
     assert "Bronze" in (workspace_root / "README.md").read_text(encoding="utf-8")
 

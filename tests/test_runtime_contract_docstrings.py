@@ -20,10 +20,9 @@ from metrka_core.pipeline.silver import (
     reconcile_publications,
 )
 from metrka_core.quality import checks as quality_checks
-from metrka_core.quality.checks import basic, fingerprint, table, zip
-from metrka_core.quality.checks import bronze as bronze_checks
-from metrka_core.quality.checks import files as file_checks
-from metrka_core.quality.registry import create_default_quality_registry
+from metrka_core.quality import config as quality_config
+from metrka_core.quality import gates as quality_gates
+from metrka_core.quality.checks import files, outputs, tables
 
 CONTRACT_OBJECTS: tuple[tuple[str, Any], ...] = (
     ("parse_bronze_ingest_options", bronze.parse_bronze_ingest_options),
@@ -52,12 +51,11 @@ CONTRACT_OBJECTS: tuple[tuple[str, Any], ...] = (
 
 QUALITY_MODULES: tuple[tuple[str, Any], ...] = (
     ("quality.checks", quality_checks),
-    ("quality.checks.basic", basic),
-    ("quality.checks.bronze", bronze_checks),
-    ("quality.checks.files", file_checks),
-    ("quality.checks.fingerprint", fingerprint),
-    ("quality.checks.table", table),
-    ("quality.checks.zip", zip),
+    ("quality.checks.files", files),
+    ("quality.checks.outputs", outputs),
+    ("quality.checks.tables", tables),
+    ("quality.config", quality_config),
+    ("quality.gates", quality_gates),
 )
 
 
@@ -77,15 +75,16 @@ def test_builtin_quality_modules_describe_their_contract(name: str, module: Any)
     assert inspect.getdoc(module), f"Quality module has no docstring: {name}"
 
 
-def test_registered_quality_checks_have_docstrings() -> None:
-    """Require every built-in registered check to explain inputs and semantics."""
-
-    registry = create_default_quality_registry()
+def test_builtin_quality_checks_have_docstrings() -> None:
+    """The first docstring line becomes the check description stored with evidence."""
 
     undocumented = [
-        check_type
-        for check_type in registry.registered_types
-        if not inspect.getdoc(registry.resolve(check_type))
+        f"{module.__name__}.{name}"
+        for module in (files, outputs, tables)
+        for name, function in inspect.getmembers(module, inspect.isfunction)
+        if function.__module__ == module.__name__
+        and not name.startswith("_")
+        and not inspect.getdoc(function)
     ]
 
     assert undocumented == []
