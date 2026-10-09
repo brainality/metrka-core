@@ -24,11 +24,11 @@ CONTRACT: dict[str, Any] = {
 
 
 def _config(tables: dict[str, Any]) -> Any:
-    return parse_quality_config({"version": 2, "tables": tables})
+    return parse_quality_config({"version": 1, "tables": tables})
 
 
 def test_minimal_config_has_no_rules() -> None:
-    config = parse_quality_config({"version": 2})
+    config = parse_quality_config({"version": 1})
 
     assert config.tables == {}
     assert config.rule_count == 0
@@ -73,9 +73,12 @@ def test_invalid_rules_are_rejected(rules: list[Any], message: str) -> None:
         _config({"beds": {"columns": {"licensed_bed_count": rules}}})
 
 
-def test_old_version_one_files_are_rejected() -> None:
+def test_the_old_gates_format_and_unknown_versions_are_rejected() -> None:
     with pytest.raises(ValueError, match="Invalid quality config"):
         parse_quality_config({"version": 1, "gates": {}})
+
+    with pytest.raises(ValueError, match="Invalid quality config"):
+        parse_quality_config({"version": 2})
 
 
 def test_rules_must_point_at_contract_tables_and_columns() -> None:

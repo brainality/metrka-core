@@ -131,7 +131,7 @@ programming error and raises `TypeError`.
 Metrka Core runs built-in checks at every pipeline gate automatically: the
 landed file is not empty and has a recorded SHA-256, ZIP and XLSX files are
 intact, tables have rows and match their contract columns, and output files
-exist. A workspace's `conf/quality.yaml` (version 2) adds data rules per Silver
+exist. A workspace's `conf/quality.yaml` (version 1) adds data rules per Silver
 table and published column: `not_null`, `unique`, `min`, `max`, `between`, and
 `allowed`, each with an optional `severity`. Workspace validation rejects rules
 that name tables or columns the Silver contracts do not publish.

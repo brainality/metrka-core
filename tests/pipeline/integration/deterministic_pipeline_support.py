@@ -293,7 +293,7 @@ tables:
         encoding="utf-8",
     )
 
-    (config_dir / "quality.yaml").write_text("version: 2\n", encoding="utf-8")
+    (config_dir / "quality.yaml").write_text("version: 1\n", encoding="utf-8")
 
     return DeterministicWorkspace(
         name=workspace_name,

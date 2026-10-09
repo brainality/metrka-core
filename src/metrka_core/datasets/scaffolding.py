@@ -326,7 +326,7 @@ def _source_config(
 def _quality_config() -> dict[str, object]:
     # Built-in checks run automatically. Add data rules under "tables" once the
     # workspace has a Silver contract.
-    return {"version": 2}
+    return {"version": 1}
 
 
 def _validate_generated_configuration(

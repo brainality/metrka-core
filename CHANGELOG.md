@@ -27,10 +27,12 @@ modules remain implementation details unless they are listed in
 
 ### Changed
 
-- Replaced the quality configuration with version 2. `quality.yaml` now lists
-  only data rules per Silver table and published column (`not_null`, `unique`,
-  `min`, `max`, `between`, `allowed`); file, format, row, schema, and output
-  checks run automatically at each gate. Version 1 files are rejected.
+- Replaced the quality configuration format. `quality.yaml` (`version: 1`) now
+  lists only data rules per Silver table and published column (`not_null`,
+  `is_null`, `unique`, `min`, `max`, `between`, `allowed`, `forbidden`,
+  `pattern`, conditional `when` blocks); file, format, row, schema, and output
+  checks run automatically at each gate. Files in the previous `gates` format
+  are rejected.
 - Quality check IDs are generated as `<dataset_id>.<gate>.<check>`, with the
   table key and column added for Silver checks.
 - Workspace validation and runtime composition reject quality rules that name

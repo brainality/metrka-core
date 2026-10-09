@@ -92,4 +92,4 @@ def _source_config() -> dict[str, object]:
 
 
 def _quality_config() -> dict[str, object]:
-    return {"version": 2}
+    return {"version": 1}

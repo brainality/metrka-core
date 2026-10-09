@@ -137,7 +137,7 @@ def test_unchanged_archive_with_no_new_output_does_not_block() -> None:
 def test_check_that_raises_is_recorded_as_blocking_error(tmp_path: Path) -> None:
     store = RecordingStore()
     config = parse_quality_config(
-        {"version": 2, "tables": {"beds": {"columns": {"missing": ["not_null"]}}}}
+        {"version": 1, "tables": {"beds": {"columns": {"missing": ["not_null"]}}}}
     )
 
     result = check_silver_output(
@@ -170,7 +170,7 @@ def test_silver_output_runs_yaml_rules_with_their_severity(tmp_path: Path) -> No
     frame = pd.DataFrame({"county": ["A", "B"], "count": [1, -1], "rate": [5.0, 500.0]})
     config = parse_quality_config(
         {
-            "version": 2,
+            "version": 1,
             "tables": {
                 "beds": {
                     "unique": ["county"],
@@ -208,7 +208,7 @@ def test_silver_output_runs_yaml_rules_with_their_severity(tmp_path: Path) -> No
 
 def test_rules_for_other_tables_do_not_run(tmp_path: Path) -> None:
     config = parse_quality_config(
-        {"version": 2, "tables": {"other": {"columns": {"x": ["not_null"]}}}}
+        {"version": 1, "tables": {"other": {"columns": {"x": ["not_null"]}}}}
     )
     store = RecordingStore()
 

@@ -1,8 +1,8 @@
 """Read a dataset's quality rules from quality.yaml.
 
-Format (version 2)::
+Format (version 1)::
 
-    version: 2
+    version: 1
     tables:
       <table_key>:
         unique: [geography_name, reporting_year]   # optional
@@ -72,7 +72,7 @@ class TableRules:
 class QualityConfig:
     """All quality rules of one workspace, by table key."""
 
-    version: int = 2
+    version: int = 1
     tables: Mapping[str, TableRules] = field(default_factory=dict)
 
     @property
@@ -103,7 +103,7 @@ class _TableModel(BaseModel):
 class _ConfigModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    version: Literal[2]
+    version: Literal[1]
     tables: dict[str, _TableModel] = {}
 
 
