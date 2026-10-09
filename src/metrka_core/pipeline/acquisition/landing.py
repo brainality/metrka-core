@@ -63,6 +63,10 @@ def collect_landed_assets(
 
     for stream_name, stream in source_config.streams.items():
         landed_files: tuple[Path, ...]
+        stream_url = stream.extra.get("download_url")
+        asset_source_url = (
+            stream_url.strip() if isinstance(stream_url, str) and stream_url.strip() else source_url
+        )
 
         if match_mode == "exact":
             landed_file = source_config.find_landed_file(stream_name, target_dir)
@@ -105,7 +109,7 @@ def collect_landed_assets(
                     stream_name=stream_name,
                     path=landed_file,
                     source_capture_id=source_capture_id,
-                    source_url=source_url,
+                    source_url=asset_source_url,
                     artifact_role=stream.artifact_role,
                     source_last_modified=source_last_modified,
                 )
