@@ -24,12 +24,12 @@ files exist) run automatically and are not written here.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
-import re
 import yaml
 from pydantic import BaseModel, ConfigDict, ValidationError
 
@@ -37,10 +37,11 @@ from metrka_core.quality.models import QualitySeverity
 from metrka_core.transform.ops.casting import parse_decimal_cast_type
 
 FLAG_RULES = frozenset({"not_null", "is_null", "unique"})
-VALUE_RULES = frozenset({"min", "max", "between", "allowed","forbidden","pattern"})
+VALUE_RULES = frozenset({"min", "max", "between", "allowed", "forbidden", "pattern"})
 NUMERIC_RULES = frozenset({"min", "max", "between"})
 NUMERIC_CAST_TYPES = frozenset({"int", "float"})
 CURRENT_YEAR = "current_year"
+
 
 @dataclass(frozen=True, slots=True)
 class ColumnRule:
@@ -209,9 +210,11 @@ def _parse_rule(item: str | dict[str, Any], *, where: str) -> ColumnRule:
         try:
             re.compile(value)
         except re.error as exc:
-            raise ValueError(f"Rule 'pattern' is not a valid regular expression at {where}") from exc
+            raise ValueError(
+                f"Rule 'pattern' is not a valid regular expression at {where}"
+            ) from exc
 
-    if rule in {"allowed","forbidden"}:
+    if rule in {"allowed", "forbidden"}:
         if not (isinstance(value, list) and value):
             raise ValueError(f"Rule {rule!r} needs a non-empty list at {where}")
         value = tuple(value)
@@ -222,8 +225,10 @@ def _parse_rule(item: str | dict[str, Any], *, where: str) -> ColumnRule:
 def _is_number(value: object) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
+
 def _is_bound(value: object) -> bool:
     return _is_number(value) or value == CURRENT_YEAR
+
 
 def contract_tables(contract: Mapping[str, Any]) -> dict[str, dict[str, str]]:
     """Map each contract table to its published columns and their cast types."""
@@ -277,4 +282,3 @@ def validate_quality_config(config: QualityConfig, contracts: Iterable[Mapping[s
 
 def _is_numeric_cast(cast_to: str) -> bool:
     return cast_to in NUMERIC_CAST_TYPES or parse_decimal_cast_type(cast_to) is not None
-

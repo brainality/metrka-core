@@ -14,9 +14,9 @@ check through the store, and returns the gate result.
 from __future__ import annotations
 
 import time
-from datetime import UTC, date, datetime
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import UTC, date, datetime
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -326,15 +326,15 @@ def _column_check(
         low, high = value
         function, label = tables.between, f"between {low} and {high}"
         settings = {"column": column, "low": low, "high": high}
-    
+
     elif rule.rule == "allowed":
         function, label = tables.allowed_values, f"one of {list(value)}"
         settings = {"column": column, "values": value}
-    
+
     elif rule.rule == "pattern":
         function, label = tables.matches_pattern, f"matches {value}"
         settings = {"column": column, "pattern": value}
-    
+
     elif rule.rule == "forbidden":
         function, label = tables.forbidden_values, f"is never one of {list(value)}"
         settings = {"column": column, "values": value}
@@ -378,6 +378,7 @@ def _matching_rows(frame: pd.DataFrame, rows: Mapping[str, Any]) -> pd.DataFrame
 
     return frame[mask]
 
+
 def _resolve_current_year(value: Any, year: int) -> Any:
     """Replace ``current_year`` in a rule value with the actual year."""
 
@@ -388,6 +389,7 @@ def _resolve_current_year(value: Any, year: int) -> Any:
         return tuple(_resolve_current_year(item, year) for item in value)
 
     return value
+
 
 def _table_details(table: SilverTable) -> dict[str, Any]:
     return {"table_key": table.table_key, "source_file_name": table.source_file_name}

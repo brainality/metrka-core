@@ -51,10 +51,12 @@ def not_null(table: pd.DataFrame, *, column: str) -> Outcome:
 
     return _rows_rule(table, column, table[column].isna(), "has no missing values")
 
+
 def is_null(table: pd.DataFrame, *, column: str) -> Outcome:
     """Every value in the column is missing."""
 
     return _rows_rule(table, column, table[column].notna(), "is always missing")
+
 
 def unique(table: pd.DataFrame, *, columns: Sequence[str]) -> Outcome:
     """No two rows share the same values in ``columns``."""
@@ -107,17 +109,20 @@ def allowed_values(table: pd.DataFrame, *, column: str, values: Sequence[Any]) -
     not_allowed = series.notna() & ~series.isin(list(values))
     return _rows_rule(table, column, not_allowed, f"is one of {list(values)}")
 
+
 def matches_pattern(table: pd.DataFrame, *, column: str, pattern: str) -> Outcome:
     """Every present value, written as text, matches the regular expression."""
 
     values = table[column].dropna().astype(str)
-    return _rows_rule(table,column, ~values.str.fullmatch(pattern), f"matches {pattern}")
+    return _rows_rule(table, column, ~values.str.fullmatch(pattern), f"matches {pattern}")
+
 
 def forbidden_values(table: pd.DataFrame, *, column: str, values: Sequence[Any]) -> Outcome:
     """No value is one of ``values``."""
 
     forbidden = table[column].isin(list(values))
     return _rows_rule(table, column, forbidden, f"is never one of {list(values)}")
+
 
 def _rows_rule(table: pd.DataFrame, column: str, bad: pd.Series, rule: str) -> Outcome:
     """Turn a mask of rows that break a column rule into an outcome."""
