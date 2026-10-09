@@ -13,6 +13,7 @@ import yaml
 from metrka_core.datasets.workspace_location import WorkspaceLocation, WorkspacePlacement
 
 WORKSPACE_CONFIG_SCHEMA_VERSION: Final = 1
+DATASET_FOLDERS_LAYOUT: Final = "dataset_folders"
 
 
 def _load_yaml_mapping(path: Path) -> dict[str, object]:
@@ -48,7 +49,12 @@ def _resolve_path(raw_path: object, *, field_name: str, config_path: Path) -> Pa
 
 
 def _require_exact_keys(
-    entry: Mapping[object, object], *, expected: set[str], workspace_name: str, config_path: Path
+    entry: Mapping[object, object],
+    *,
+    expected: set[str],
+    workspace_name: str,
+    config_path: Path,
+    optional: frozenset[str] = frozenset(),
 ) -> None:
     if not all(isinstance(key, str) for key in entry):
         raise ValueError(
@@ -56,12 +62,12 @@ def _require_exact_keys(
         )
 
     actual = {str(key) for key in entry}
+    missing = sorted(expected - actual)
+    unexpected = sorted(actual - expected - optional)
 
-    if actual == expected:
+    if not missing and not unexpected:
         return
 
-    missing = sorted(expected - actual)
-    unexpected = sorted(actual - expected)
     details: list[str] = []
 
     if missing:
@@ -134,9 +140,18 @@ def load_workspace_locations(config_path: str | Path) -> dict[str, WorkspaceLoca
             _require_exact_keys(
                 raw_entry,
                 expected={"placement", "workspace_root"},
+                optional=frozenset({"layout"}),
                 workspace_name=workspace_name,
                 config_path=resolved_config_path,
             )
+            layout = raw_entry.get("layout")
+
+            if layout is not None and layout != DATASET_FOLDERS_LAYOUT:
+                raise ValueError(
+                    f"Workspace {workspace_name!r} has unsupported layout {layout!r}; "
+                    f"supported={[DATASET_FOLDERS_LAYOUT]}"
+                )
+
             location = WorkspaceLocation.portable(
                 workspace_name=workspace_name,
                 workspace_root=_resolve_path(
@@ -144,6 +159,7 @@ def load_workspace_locations(config_path: str | Path) -> dict[str, WorkspaceLoca
                     field_name="workspace_root",
                     config_path=resolved_config_path,
                 ),
+                dataset_folders=layout == DATASET_FOLDERS_LAYOUT,
             )
         else:
             _require_exact_keys(
@@ -204,8 +220,27 @@ class YamlWorkspaceLocationResolver:
         normalized_name = workspace_name.strip()
         location = self.locations.get(normalized_name)
 
+        if location is None and "." in normalized_name:
+            source_name, dataset_name = normalized_name.rsplit(".", 1)
+            source = self.locations.get(source_name)
+
+            if source is not None and source.dataset_folders:
+                location = source.dataset_folder(dataset_name)
+
+                if not location.definition_root.is_dir():
+                    raise RuntimeError(
+                        f"Dataset folder {dataset_name!r} does not exist in source "
+                        f"{source_name!r}: {location.definition_root}"
+                    )
+
         if location is None:
             raise KeyError(f"Unknown workspace {normalized_name!r} in {self.config_path}")
+
+        if location.dataset_folders:
+            raise ValueError(
+                f"Workspace {normalized_name!r} keeps each dataset in its own folder; "
+                f"name one dataset, for example {normalized_name}.<dataset>"
+            )
 
         if not location.definition_root.is_dir():
             raise RuntimeError(
@@ -225,3 +260,21 @@ class YamlWorkspaceLocationResolver:
             )
 
         return location
+
+    def resolve_dataset(self, dataset_id: str) -> WorkspaceLocation:
+        """Resolve the folder that defines one published dataset (``workspace.stream``)."""
+
+        if not isinstance(dataset_id, str) or not dataset_id.strip():
+            raise ValueError("dataset_id must be a non-empty string")
+
+        workspace_name, separator, stream_name = dataset_id.strip().rpartition(".")
+
+        if not separator or not workspace_name or not stream_name:
+            raise ValueError(f"dataset_id must look like 'workspace.stream': {dataset_id!r}")
+
+        source = self.locations.get(workspace_name)
+
+        if source is not None and source.dataset_folders:
+            return self.resolve(dataset_id.strip())
+
+        return self.resolve(workspace_name)

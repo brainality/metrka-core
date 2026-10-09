@@ -205,6 +205,51 @@ def test_queue_aggregates_candidate_outcomes_at_batch_boundary(
     assert finished[-1].counts == ExecutionCounts(success=1, failed=0, skipped=1, blocked=0)
 
 
+def test_queue_ignores_bronze_files_of_datasets_from_other_workspaces(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    records = (
+        SilverCandidateFile(
+            dataset_file_id="file-1", dataset_id="other_workspace.data", bronze_run_id="bronze-1"
+        ),
+        SilverCandidateFile(
+            dataset_file_id="file-2", dataset_id="example.own", bronze_run_id="bronze-2"
+        ),
+    )
+    selected_records: list[tuple[SilverCandidateFile, ...]] = []
+    candidate_deps = FakeCandidateDeps(selection=object(), dataset_preparation=object())
+
+    monkeypatch.setattr(
+        silver_orchestrator, "build_silver_candidate_execution_deps", lambda _deps: candidate_deps
+    )
+
+    def record_selection(**kwargs: Any) -> SilverCandidateSelection:
+        selected_records.append(tuple(kwargs["records"]))
+        return SilverCandidateSelection(pending=(), skipped=())
+
+    monkeypatch.setattr(silver_orchestrator, "select_silver_candidates", record_selection)
+
+    silver_orchestrator.process_silver_queue(
+        runtime=_runtime(),
+        deps=_deps(records=records, execution_logs=RecordingExecutionLogStore()),
+        tasks=[_task("example.own")],
+    )
+
+    assert selected_records == [(records[1],)]
+
+
+def test_queue_rejects_a_target_dataset_this_workspace_does_not_configure() -> None:
+    with pytest.raises(SilverProcessingError) as error:
+        silver_orchestrator.process_silver_queue(
+            runtime=_runtime(),
+            deps=_deps(records=(), execution_logs=RecordingExecutionLogStore()),
+            tasks=[_task("example.own")],
+            target_dataset_id="other_workspace.data",
+        )
+
+    assert error.value.failure.error_code == "SILVER_TASK_NOT_CONFIGURED"
+
+
 def test_queue_counts_structured_candidate_failure_once(monkeypatch: pytest.MonkeyPatch) -> None:
     records = (
         SilverCandidateFile(
