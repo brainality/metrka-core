@@ -185,6 +185,35 @@ def test_pattern_backfill_collects_multiple_files_for_one_stream(tmp_path: Path)
     assert {asset.stream_name for asset in assets} == {"county"}
 
 
+def test_backfill_records_each_streams_own_download_url(tmp_path: Path) -> None:
+    source_config = SourceConfig(
+        workspace_name="fl_healthcharts",
+        streams={
+            "beds": StreamConfig(
+                name="beds",
+                official_filename="cid0321__*.xlsx",
+                extra={"download_url": "https://example.test/cid=0321"},
+            ),
+            "abuse": StreamConfig(name="abuse", official_filename="cid0560__*.xlsx"),
+        },
+    )
+    (tmp_path / "cid0321__2025.xlsx").write_bytes(b"xlsx")
+    (tmp_path / "cid0560__2025.xlsx").write_bytes(b"xlsx")
+
+    assets = collect_landed_assets(
+        source_config=source_config,
+        target_dir=tmp_path,
+        source_capture_id=CAPTURE_ID,
+        source_url="https://example.test/portal",
+        match_mode="pattern",
+    )
+
+    assert {asset.stream_name: asset.source_url for asset in assets} == {
+        "beds": "https://example.test/cid=0321",
+        "abuse": "https://example.test/portal",
+    }
+
+
 def test_pattern_backfill_rejects_file_matching_multiple_streams(tmp_path: Path) -> None:
     source_config = SourceConfig(
         workspace_name="fl_ahca_adult_substance_abuse_beds",

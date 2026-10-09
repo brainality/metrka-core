@@ -101,7 +101,6 @@ def initialize_workspace(
         workspace_name=normalized_workspace_name,
         stream_name=normalized_stream_name,
         official_filename=normalized_official_filename,
-        source_name=normalized_source_name,
         download_url=normalized_download_url,
     )
     quality_config = _quality_config()
@@ -127,7 +126,8 @@ def initialize_workspace(
             atomic_write_text(main_config_path, _yaml_text(source_config))
             atomic_write_text(quality_config_path, _yaml_text(quality_config))
             atomic_write_text(
-                layout.definition_root / "README.md", _workspace_readme(normalized_workspace_name)
+                layout.definition_root / "README.md",
+                _workspace_readme(normalized_workspace_name, normalized_source_name),
             )
 
             if location.is_portable:
@@ -284,28 +284,14 @@ def _cleanup_created_roots(
 
 
 def _source_config(
-    *,
-    workspace_name: str,
-    stream_name: str,
-    official_filename: str,
-    source_name: str,
-    download_url: str,
+    *, workspace_name: str, stream_name: str, official_filename: str, download_url: str
 ) -> dict[str, object]:
+    # Processing settings only. The dataset's title, description and source are
+    # described in its contract's `meta` block.
     return {
         "workspace_name": workspace_name,
-        "source": {
-            "name": source_name,
-            "system": source_name,
-            "url": download_url,
-            "update_frequency": "unknown",
-        },
         "streams": {
-            stream_name: {
-                "display_name": f"{source_name} data",
-                "description": "Describe the source dataset and its intended use.",
-                "official_filename": official_filename,
-                "download_url": download_url,
-            }
+            stream_name: {"official_filename": official_filename, "download_url": download_url}
         },
         "pipeline": {
             "quality": {"config": "quality.yaml"},
@@ -316,7 +302,7 @@ def _source_config(
                     "min_bytes": 1,
                     "user_agent": "Metrka data pipeline",
                 },
-                "backfill": {"source_url": "manual_upload", "match_mode": "exact"},
+                "backfill": {"match_mode": "exact"},
             },
             "steps": [{"action": "bronze.ingest"}],
         },
@@ -345,10 +331,13 @@ def _yaml_text(value: object) -> str:
     return yaml.safe_dump(value, sort_keys=False, allow_unicode=True)
 
 
-def _workspace_readme(workspace_name: str) -> str:
+def _workspace_readme(workspace_name: str, source_name: str) -> str:
     return (
         f"# {workspace_name}\n\n"
+        f"Source: {source_name}.\n\n"
         "This workspace is configured for HTTP acquisition and Bronze preservation.\n\n"
-        "Before adding `silver.process`, create a dataset contract, declare the Silver input "
-        "and output settings in `conf/main.yaml`, and describe every published column.\n"
+        "Before adding `silver.process`, create a dataset contract and describe the dataset "
+        "in its `meta` block: `title`, `info`, and `source` (`publisher`, `name`, `url`, "
+        "`update_frequency`). Declare the Silver input and output settings in "
+        "`conf/main.yaml`, and describe every published column in the contract.\n"
     )

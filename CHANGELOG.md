@@ -33,6 +33,13 @@ modules remain implementation details unless they are listed in
 
 ### Changed
 
+- Dataset descriptions belong in the contract's `meta` block (`title`, `info`,
+  `source.publisher`, `source.name`, `source.url`, `source.update_frequency`);
+  `conf/main.yaml` holds processing settings only. New workspace scaffolds no
+  longer write `source`, `display_name`, or `description` into `main.yaml`.
+- Backfill records each stream's `download_url` as the landed asset's source
+  URL; `pipeline.acquisition.backfill.source_url` is only a fallback for
+  streams without one.
 - Replaced the quality configuration format. `quality.yaml` (`version: 1`) now
   lists only data rules per Silver table and published column (`not_null`,
   `is_null`, `unique`, `min`, `max`, `between`, `allowed`, `forbidden`,
