@@ -12,7 +12,9 @@ the independently processed and published identity of that stream. Its
 `dataset_id` combines the workspace and stream names as
 `<workspace_name>.<stream_name>`; for example, workspace
 `wi_dhs_adult_lead` and stream `county` form dataset
-`wi_dhs_adult_lead.county`.
+`wi_dhs_adult_lead.county`. Stream names never contain a dot, so the last dot
+separates the two parts; read them with `parse_dataset_id()` instead of splitting
+the identifier yourself.
 
 A **table** is one tabular output produced by a dataset. A dataset may produce
 one or more tables, and each table may be materialized as one or more files or
@@ -70,6 +72,8 @@ requires the corresponding compatibility decision for the package version.
 | `WorkspaceValidationResult` | Workspace result | Reports resolved static workspace, stream, action, quality, and Silver-contract configuration. |
 | `BronzeRunIdGenerator` | Runtime protocol | Generates Bronze run identifiers through `RuntimeServices`. |
 | `DatasetFileIdGenerator` | Runtime protocol | Generates dataset-file identifiers through `RuntimeServices`. |
+| `DatasetIdentity` | Dataset identity | Holds a canonical `dataset_id` with the workspace and stream names returned by `parse_dataset_id()`. |
+| `DatasetIdentityError` | Dataset identity exception | Rejects a `dataset_id` that breaks the identity rule and exposes the stable `reason`. |
 | `WorkspaceLocation` | Workspace model | Binds one logical workspace, or one dataset folder of a source workspace, to resolved definition and persistent data roots. |
 | `WorkspaceLocationResolver` | Workspace protocol | Resolves a configured workspace name, `source.dataset` for a dataset folder, or a published `dataset_id` (`resolve_dataset`) to a `WorkspaceLocation`. |
 | `WorkspacePlacement` | Configuration enum | Distinguishes portable workspaces from managed, independently placed definition and data roots. |
@@ -83,6 +87,7 @@ requires the corresponding compatibility decision for the package version.
 | `initialize_workspace` | Workspace operation | Creates and registers a new Bronze-ready portable or managed workspace without overwriting existing state. |
 | `import_workspace` | Workspace operation | Verifies, installs, and registers a customer workspace package as a new portable workspace. |
 | `open_pipeline_context` | Advanced execution | Opens the PostgreSQL-backed composition and lifecycle context for one pipeline run and closes it on exit. |
+| `parse_dataset_id` | Dataset identity | Splits `<workspace_name>.<stream_name>` at the last dot, the one rule every Metrka reader must use instead of parsing identifiers itself. |
 | `run_pipeline` | Pipeline operation | Runs acquisition and all configured actions for one workspace and returns `PipelineRunResult`. |
 | `validate_workspace` | Workspace operation | Validates static workspace configuration without PostgreSQL, acquisition, action execution, or runtime writes. |
 | `verify_workspace_export` | Workspace operation | Verifies manifest structure, safe membership, sizes, and checksums without extracting the package. |
