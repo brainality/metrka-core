@@ -24,6 +24,12 @@ modules remain implementation details unless they are listed in
   total rows, creates derived `Unallocated` rows for positive differences,
   rejects child totals greater than their parent, and records evidence for
   every reconciled group.
+- A portable workspace registered with `layout: dataset_folders` keeps each
+  dataset in its own folder (`<source>/<dataset>/conf` and `data`). Run and
+  validate one dataset as `<source>.<dataset>`; its `main.yaml` names the
+  source as `workspace_name` and defines one stream named like the folder.
+- Added `WorkspaceLocationResolver.resolve_dataset(dataset_id)` so readers find
+  the folder that defines a published dataset in either layout.
 
 ### Changed
 
@@ -47,6 +53,11 @@ modules remain implementation details unless they are listed in
 
 - A ZIP whose members did not change no longer blocks Bronze ingestion with
   `QUALITY_GATE_ALL_CHECKS_SKIPPED`; the output check is recorded as skipped.
+- Silver processing considers only Bronze files of the datasets the running
+  workspace configures. Files of other workspaces in the shared metadata
+  database no longer stop the run with `SILVER_TASK_NOT_CONFIGURED`, and
+  `--dataset-id` is no longer needed to avoid them. A `--dataset-id` the
+  workspace does not configure is rejected before processing.
 - Reject XLSX Bronze batches when source column names or their order differ,
   instead of silently combining incompatible columns.
 - Publish only the contract's canonical columns in Silver data files and

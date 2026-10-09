@@ -70,8 +70,8 @@ requires the corresponding compatibility decision for the package version.
 | `WorkspaceValidationResult` | Workspace result | Reports resolved static workspace, stream, action, quality, and Silver-contract configuration. |
 | `BronzeRunIdGenerator` | Runtime protocol | Generates Bronze run identifiers through `RuntimeServices`. |
 | `DatasetFileIdGenerator` | Runtime protocol | Generates dataset-file identifiers through `RuntimeServices`. |
-| `WorkspaceLocation` | Workspace model | Binds one logical workspace to resolved definition and persistent data roots. |
-| `WorkspaceLocationResolver` | Workspace protocol | Resolves a configured workspace name to a `WorkspaceLocation`. |
+| `WorkspaceLocation` | Workspace model | Binds one logical workspace, or one dataset folder of a source workspace, to resolved definition and persistent data roots. |
+| `WorkspaceLocationResolver` | Workspace protocol | Resolves a configured workspace name, `source.dataset` for a dataset folder, or a published `dataset_id` (`resolve_dataset`) to a `WorkspaceLocation`. |
 | `WorkspacePlacement` | Configuration enum | Distinguishes portable workspaces from managed, independently placed definition and data roots. |
 | `SilverBuildIdGenerator` | Runtime protocol | Generates Silver build identifiers through `RuntimeServices`. |
 | `create_core_registry` | Registry factory | Creates a fresh registry containing the built-in acquisition extractors and pipeline actions. |
@@ -102,7 +102,7 @@ from metrka_core.api import (
 
 location = create_workspace_location_resolver(
     runtime_environment=RuntimeEnvironment.PRODUCTION,
-).resolve("gapminder")
+).resolve_dataset("gapminder.data")
 
 reader = create_publication_manifest_reader(data_root=location.data_root)
 # Read this value from catalog.dataset_publications.manifest_path.
@@ -112,6 +112,24 @@ contract_reader = create_contract_snapshot_reader(data_root=location.data_root)
 # Read this value from the selected publication's contract snapshot metadata.
 contract = contract_reader.read_snapshot(path=contract_snapshot_json_path)
 ```
+
+`resolve_dataset()` returns the folder that defines a published dataset. Use it
+instead of resolving the workspace part of a `dataset_id` yourself: a source
+registered with `layout: dataset_folders` keeps each dataset in its own folder.
+
+```yaml
+schema_version: 1
+workspaces:
+  fl_healthcharts:
+    placement: portable
+    workspace_root: datasets/fl_healthcharts
+    layout: dataset_folders
+```
+
+Here `fl_healthcharts/adult_substance_abuse_beds/` holds its own `conf/` and
+`data/`. Its `conf/main.yaml` declares `workspace_name: fl_healthcharts` and
+exactly one stream named `adult_substance_abuse_beds`, so the dataset is
+`fl_healthcharts.adult_substance_abuse_beds`. Run and validate it by that name.
 
 Manifest paths are restricted to `files/silver/manifests/`. Contract snapshot
 paths are restricted to `contracts/`. Every supplied path must be a canonical

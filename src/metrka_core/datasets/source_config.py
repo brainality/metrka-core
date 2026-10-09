@@ -299,3 +299,13 @@ def load_source_config(path: str | Path, *, expected_ws_name: str | None = None)
         )
 
     return SourceConfig(workspace_name=workspace_name, streams=streams, pipeline=dict(raw_pipeline))
+
+
+def require_dataset_folder_streams(source_config: SourceConfig, *, dataset_name: str) -> None:
+    """A dataset folder defines exactly one stream, named like the folder."""
+
+    if list(source_config.streams) != [dataset_name]:
+        raise RuntimeError(
+            f"Dataset folder {dataset_name!r} must define exactly one stream named "
+            f"{dataset_name!r}; found {sorted(source_config.streams)}"
+        )

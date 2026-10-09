@@ -6,7 +6,11 @@ import logging
 from dataclasses import dataclass
 
 from metrka_core.datasets.path_resolver import WorkspaceLocationResolver
-from metrka_core.datasets.source_config import SourceConfig, load_source_config
+from metrka_core.datasets.source_config import (
+    SourceConfig,
+    load_source_config,
+    require_dataset_folder_streams,
+)
 from metrka_core.pipeline.acquisition.source_capture_ids import SourceCaptureIdGenerator
 from metrka_core.pipeline.config import parse_quality_settings
 from metrka_core.pipeline.runtime_services import Clock
@@ -53,10 +57,10 @@ def build_workspace_composition(
 
     location = workspace_locations.resolve(workspace_name)
 
-    if location.workspace_name != workspace_name:
+    if location.name != workspace_name:
         raise ValueError(
             "WorkspaceLocationResolver returned a location for a different workspace: "
-            f"{location.workspace_name!r}"
+            f"{location.name!r}"
         )
 
     layout = WorkspaceLayout(location=location)
@@ -90,8 +94,11 @@ def build_workspace_composition(
     )
 
     source_config = load_source_config(
-        config_store.path(name=config_name), expected_ws_name=workspace_name
+        config_store.path(name=config_name), expected_ws_name=location.workspace_name
     )
+
+    if location.dataset_name is not None:
+        require_dataset_folder_streams(source_config, dataset_name=location.dataset_name)
 
     quality_settings = parse_quality_settings(source_config.pipeline.get("quality"))
 

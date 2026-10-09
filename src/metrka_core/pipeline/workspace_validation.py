@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from metrka_core.datasets.path_resolver import WorkspaceLocationResolver
-from metrka_core.datasets.source_config import load_source_config
+from metrka_core.datasets.source_config import load_source_config, require_dataset_folder_streams
 from metrka_core.pipeline.composition.workspace_locations import (
     WORKSPACES_CONFIG_ENVIRONMENT_VARIABLE,
     build_workspace_location_resolver,
@@ -93,10 +93,10 @@ def validate_workspace(
     normalized_workspace_name = workspace_name.strip()
     location = resolved_locations.resolve(normalized_workspace_name)
 
-    if location.workspace_name != normalized_workspace_name:
+    if location.name != normalized_workspace_name:
         raise ValueError(
             "WorkspaceLocationResolver returned a location for a different workspace: "
-            f"{location.workspace_name!r}"
+            f"{location.name!r}"
         )
 
     layout = WorkspaceLayout(location=location)
@@ -104,7 +104,10 @@ def validate_workspace(
         workspace_root=layout.definition_root, config_root=layout.conf_dir
     )
     config_path = config_store.path(name=config_name)
-    source_config = load_source_config(config_path, expected_ws_name=normalized_workspace_name)
+    source_config = load_source_config(config_path, expected_ws_name=location.workspace_name)
+
+    if location.dataset_name is not None:
+        require_dataset_folder_streams(source_config, dataset_name=location.dataset_name)
 
     pipeline = parse_pipeline_spec(source_config.pipeline)
     resolved_registry.get_extractor(pipeline.acquisition.extractor)

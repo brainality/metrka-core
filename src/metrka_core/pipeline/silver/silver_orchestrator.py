@@ -93,8 +93,18 @@ def process_silver_queue(
     """Evaluate available Bronze candidates using fail-fast batch semantics."""
 
     task_map = {task.dataset_id: task for task in tasks}
-    candidate_files = deps.inputs.file_marshal_store.get_silver_candidate_files(
-        dataset_id=target_dataset_id
+
+    if target_dataset_id is not None and target_dataset_id not in task_map:
+        raise _missing_task_failure(target_dataset_id)
+
+    # The metadata database is shared by every workspace, so keep only the
+    # datasets this workspace configures.
+    candidate_files = tuple(
+        record
+        for record in deps.inputs.file_marshal_store.get_silver_candidate_files(
+            dataset_id=target_dataset_id
+        )
+        if record.dataset_id in task_map
     )
 
     if not candidate_files:

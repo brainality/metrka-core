@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
+
+_DATASET_FOLDER_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*")
 
 
 class WorkspacePlacement(StrEnum):
@@ -22,12 +25,23 @@ class WorkspaceLocation:
     definition_root: Path
     data_root: Path
     workspace_root: Path | None = None
+    dataset_folders: bool = False
+    dataset_name: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.workspace_name, str) or not self.workspace_name.strip():
             raise ValueError("workspace_name must be a non-empty string")
 
         object.__setattr__(self, "workspace_name", self.workspace_name.strip())
+
+        if self.dataset_folders and self.workspace_root is None:
+            raise ValueError("Only a portable workspace can keep its datasets in folders")
+
+        if self.dataset_name is not None:
+            if self.dataset_folders:
+                raise ValueError("A dataset folder cannot itself contain dataset folders")
+
+            require_dataset_folder_name(self.dataset_name)
 
         for field_name in ("definition_root", "data_root"):
             value = getattr(self, field_name)
@@ -71,8 +85,14 @@ class WorkspaceLocation:
                 ) from error
 
     @classmethod
-    def portable(cls, *, workspace_name: str, workspace_root: Path) -> WorkspaceLocation:
-        """Create the conventional all-in-one layout used by existing workspaces."""
+    def portable(
+        cls, *, workspace_name: str, workspace_root: Path, dataset_folders: bool = False
+    ) -> WorkspaceLocation:
+        """Create the conventional all-in-one layout used by existing workspaces.
+
+        With ``dataset_folders``, the workspace is a source whose datasets each live in
+        their own subfolder with the same all-in-one layout.
+        """
 
         normalized_root = workspace_root.expanduser().resolve()
         return cls(
@@ -80,7 +100,32 @@ class WorkspaceLocation:
             workspace_root=normalized_root,
             definition_root=normalized_root,
             data_root=normalized_root / "data",
+            dataset_folders=dataset_folders,
         )
+
+    def dataset_folder(self, dataset_name: str) -> WorkspaceLocation:
+        """Return the location of one dataset folder inside this source."""
+
+        if not self.dataset_folders or self.workspace_root is None:
+            raise ValueError(f"Workspace {self.workspace_name!r} does not keep datasets in folders")
+
+        folder = self.workspace_root / require_dataset_folder_name(dataset_name)
+        return WorkspaceLocation(
+            workspace_name=self.workspace_name,
+            workspace_root=folder,
+            definition_root=folder,
+            data_root=folder / "data",
+            dataset_name=dataset_name,
+        )
+
+    @property
+    def name(self) -> str:
+        """The name used to run or validate this location: ``workspace`` or ``workspace.dataset``."""
+
+        if self.dataset_name is None:
+            return self.workspace_name
+
+        return f"{self.workspace_name}.{self.dataset_name}"
 
     @classmethod
     def managed(
@@ -106,3 +151,14 @@ class WorkspaceLocation:
             return WorkspacePlacement.PORTABLE
 
         return WorkspacePlacement.MANAGED
+
+
+def require_dataset_folder_name(dataset_name: str) -> str:
+    """A dataset folder name is also the dataset's stream name: letters, digits, ``_`` or ``-``."""
+
+    if not isinstance(dataset_name, str) or _DATASET_FOLDER_NAME.fullmatch(dataset_name) is None:
+        raise ValueError(
+            f"Dataset folder name {dataset_name!r} must use only letters, digits, '_' or '-'"
+        )
+
+    return dataset_name
