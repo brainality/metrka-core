@@ -284,11 +284,11 @@ def build_silver_table(
                 expected_columns=tuple(canonical_columns),
                 source_file_name=source_file_name,
                 output_files=quality_output_files,
-                as_of=silver_processed_at.date(),
             ),
             config=quality_config,
             ids=quality_ids,
             store=quality_store,
+            as_of=silver_processed_at.date(),
         )
 
         if post_quality.failed:

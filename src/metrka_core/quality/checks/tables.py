@@ -110,7 +110,7 @@ def allowed_values(table: pd.DataFrame, *, column: str, values: Sequence[Any]) -
 def matches_pattern(table: pd.DataFrame, *, column: str, pattern: str) -> Outcome:
     """Every present value, written as text, matches the regular expression."""
 
-    values = table[column].dropna.astype(str)
+    values = table[column].dropna().astype(str)
     return _rows_rule(table,column, ~values.str.fullmatch(pattern), f"matches {pattern}")
 
 def forbidden_values(table: pd.DataFrame, *, column: str, values: Sequence[Any]) -> Outcome:
