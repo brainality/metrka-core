@@ -63,10 +63,11 @@ class ConfiguredAcquisitionProcessor:
             backfill_source_last_modified_from=backfill_source_last_modified_from,
         )
 
+        # A dataset-folder run is named `source.dataset`; its capture belongs to `source`.
         self.source_captures.register_capture(
             capture=result.source_capture,
             pipeline_run_id=runtime.pipeline_run_id,
-            workspace_name=runtime.dataset_name,
+            workspace_name=self.deps.source_config.workspace_name,
         )
 
         return result

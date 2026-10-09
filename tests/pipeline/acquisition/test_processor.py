@@ -13,11 +13,14 @@ from metrka_core.pipeline.models import AcquisitionResult
 
 
 def test_processor_acquires_and_registers_capture() -> None:
+    """A dataset-folder run is named `source.dataset`; its capture belongs to `source`."""
+
     runtime = Mock(spec=ActionRuntime)
     runtime.pipeline_run_id = "pipeline-test"
-    runtime.dataset_name = "workspace-test"
+    runtime.dataset_name = "workspace-test.dataset"
 
     deps = Mock(spec=AcquisitionDeps)
+    deps.source_config = Mock(workspace_name="workspace-test")
     source_captures = Mock()
     extractor = Mock()
 
