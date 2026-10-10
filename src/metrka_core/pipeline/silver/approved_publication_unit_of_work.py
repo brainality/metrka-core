@@ -1,10 +1,9 @@
-"""Atomic boundary for publishing an approved candidate."""
+"""Command and result for publishing an approved candidate."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol
 
 from metrka_core.catalog.publication_asset_models import DatasetPublicationAsset
 from metrka_core.catalog.publication_candidate_models import DatasetPublicationCandidate
@@ -34,9 +33,3 @@ class ApprovedPublicationResult:
     publication: DatasetPublication
     current_publication: DatasetPublication
     publication_assets: tuple[DatasetPublicationAsset, ...]
-
-
-class ApprovedPublicationUnitOfWork(Protocol):
-    """Atomically publish one approved candidate."""
-
-    def commit(self, command: ApprovedPublicationCommand) -> ApprovedPublicationResult: ...
