@@ -6,8 +6,8 @@ from dataclasses import dataclass, replace
 
 from metrka_core.metadata.file_marshal_models import SilverCandidateFile
 from metrka_core.pipeline.silver.build_models import SilverBuild
-from metrka_core.pipeline.silver.build_store import SilverBuildStore
 from metrka_core.pipeline.silver.candidate_dataset_preparation import SilverDatasetContractIdentity
+from metrka_core.pipeline.silver.postgres_build_store import PostgresSilverBuildStore
 from metrka_core.pipeline.silver.rebuild_decision import calculate_silver_build_signature
 from metrka_core.pipeline.silver.silver_artifacts import contract_snapshot_metadata
 from metrka_core.pipeline.silver.task_models import SilverTaskConfig
@@ -21,7 +21,7 @@ class SilverCandidateSelectionDeps:
 
     config_store: ConfigStore
     contract_store: ContractSnapshotStore
-    silver_build_store: SilverBuildStore
+    silver_build_store: PostgresSilverBuildStore
 
 
 @dataclass(frozen=True)

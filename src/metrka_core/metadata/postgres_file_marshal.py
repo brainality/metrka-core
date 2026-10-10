@@ -252,7 +252,7 @@ def _silver_candidate_from_record(record: object) -> SilverCandidateFile:
 
 
 class PostgresFileMarshalStore:
-    """PostgreSQL implementation of FileMarshalStore."""
+    """PostgreSQL implementation of PostgresFileMarshalStore."""
 
     def __init__(self, session: PostgresSession) -> None:
         self._session = session

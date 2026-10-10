@@ -6,8 +6,8 @@ from dataclasses import dataclass
 
 from metrka_core.catalog.publication_manifest_reader import PublicationManifestReader
 from metrka_core.catalog.publication_models import DatasetPublication
-from metrka_core.lineage.transformation.store import TransformationImpactStore
-from metrka_core.pipeline.silver.build_store import SilverBuildStore
+from metrka_core.lineage.transformation.postgres_store import PostgresTransformationImpactStore
+from metrka_core.pipeline.silver.postgres_build_store import PostgresSilverBuildStore
 from metrka_core.pipeline.silver.publication_indexes import validate_publication_manifest
 from metrka_core.pipeline.silver.reconciliation.models import (
     FileIntegrityExecutionFailure,
@@ -26,9 +26,9 @@ from metrka_core.storage.file_integrity import (
 class PublicationEvidenceReconciler:
     """Verify manifests, transformation details and contract snapshots."""
 
-    silver_builds: SilverBuildStore
+    silver_builds: PostgresSilverBuildStore
     file_integrity: FileIntegrityVerifier
-    transformation_impacts: TransformationImpactStore
+    transformation_impacts: PostgresTransformationImpactStore
     silver_store: PublicationManifestReader
 
     def reconcile(

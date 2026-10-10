@@ -5,10 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from metrka_core.pipeline.acquisition.dependencies import AcquisitionDeps
-from metrka_core.pipeline.acquisition.processor import (
-    AcquisitionProcessor,
-    ConfiguredAcquisitionProcessor,
-)
+from metrka_core.pipeline.acquisition.processor import ConfiguredAcquisitionProcessor
 from metrka_core.pipeline.composition.metadata import MetadataComposition
 from metrka_core.pipeline.composition.workspace import WorkspaceComposition
 
@@ -17,7 +14,7 @@ from metrka_core.pipeline.composition.workspace import WorkspaceComposition
 class AcquisitionComposition:
     """Dependencies belonging to the acquisition lifecycle phase."""
 
-    processor: AcquisitionProcessor
+    processor: ConfiguredAcquisitionProcessor
 
 
 def build_acquisition_composition(

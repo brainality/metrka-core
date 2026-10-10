@@ -9,11 +9,11 @@ from mypy import api as mypy_api
 # The mix-up that once recorded `fl_healthcharts.beds` as a capture's workspace.
 _RUN_NAME_AS_WORKSPACE = """
 from metrka_core.pipeline.acquisition.models import SourceCapture
-from metrka_core.pipeline.acquisition.source_capture_store import SourceCaptureStore
+from metrka_core.pipeline.acquisition.postgres_source_capture_store import PostgresSourceCaptureStore
 from metrka_core.pipeline.action_runtime import ActionRuntime
 
 
-def register(store: SourceCaptureStore, runtime: ActionRuntime, capture: SourceCapture) -> None:
+def register(store: PostgresSourceCaptureStore, runtime: ActionRuntime, capture: SourceCapture) -> None:
     store.register_capture(
         capture=capture, pipeline_run_id="run", workspace_name=runtime.dataset_name
     )

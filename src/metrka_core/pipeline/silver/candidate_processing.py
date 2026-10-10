@@ -20,13 +20,13 @@ from metrka_core.observability.stores import ExecutionLogStore
 from metrka_core.pipeline.runtime_services import Clock
 from metrka_core.pipeline.silver.build_ids import SilverBuildIdGenerator
 from metrka_core.pipeline.silver.build_models import RebuildDecision, SilverBuild, SilverBuildStatus
-from metrka_core.pipeline.silver.build_store import SilverBuildStore
 from metrka_core.pipeline.silver.candidate_dataset_preparation import PreparedSilverDataset
 from metrka_core.pipeline.silver.fingerprints import (
     LOGICAL_DATA_HASH_ALGORITHM,
     SCHEMA_HASH_ALGORITHM,
     SILVER_FINGERPRINT_VERSION,
 )
+from metrka_core.pipeline.silver.postgres_build_store import PostgresSilverBuildStore
 from metrka_core.pipeline.silver.rebuild_decision import decide_silver_rebuild
 from metrka_core.pipeline.silver.version_period import VersionPeriod, VersionPeriodDiscovery
 from metrka_core.storage.bronze_store import BronzeArtifactStore
@@ -50,7 +50,7 @@ class SilverCandidatePreparationDeps:
     build_ids: SilverBuildIdGenerator
     bronze_store: BronzeArtifactStore
     marshal: FileMarshal
-    silver_build_store: SilverBuildStore
+    silver_build_store: PostgresSilverBuildStore
     execution_log_store: ExecutionLogStore
 
 

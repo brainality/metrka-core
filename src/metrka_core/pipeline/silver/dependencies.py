@@ -4,22 +4,22 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from metrka_core.catalog.dataset_catalog import DatasetCatalogStore
+from metrka_core.catalog.postgres_dataset_catalog import PostgresDatasetCatalogStore
 from metrka_core.datasets.source_config import SourceConfig
 from metrka_core.lineage.transformation.ids import TransformationImpactIdGenerator
-from metrka_core.lineage.transformation.store import TransformationImpactStore
-from metrka_core.metadata.contract_metadata import ContractMetadataStore
+from metrka_core.lineage.transformation.postgres_store import PostgresTransformationImpactStore
 from metrka_core.metadata.file_marshal import FileMarshal
-from metrka_core.metadata.file_marshal_store import FileMarshalStore
+from metrka_core.metadata.postgres_contract_metadata import PostgresContractMetadataStore
+from metrka_core.metadata.postgres_file_marshal import PostgresFileMarshalStore
 from metrka_core.observability.stores import ExecutionLogStore
 from metrka_core.pipeline.runtime_services import Clock
-from metrka_core.pipeline.silver.artifact_ports import SilverProcessArtifactStore
+from metrka_core.pipeline.silver.artifact_ports import SilverArtifactStore
 from metrka_core.pipeline.silver.build_ids import SilverBuildIdGenerator
-from metrka_core.pipeline.silver.build_store import SilverBuildStore
 from metrka_core.pipeline.silver.engine_models import SilverEngineRuntime
-from metrka_core.pipeline.silver.engine_store import SilverEngineReleaseStore
-from metrka_core.pipeline.silver.publication_decision_unit_of_work import (
-    SilverPublicationDecisionUnitOfWork,
+from metrka_core.pipeline.silver.postgres_build_store import PostgresSilverBuildStore
+from metrka_core.pipeline.silver.postgres_engine_store import PostgresSilverEngineReleaseStore
+from metrka_core.pipeline.silver.postgres_publication_decision_unit_of_work import (
+    PostgresSilverPublicationDecisionUnitOfWork,
 )
 from metrka_core.quality.config import QualityConfig
 from metrka_core.quality.store import QualityCheckStore
@@ -35,7 +35,7 @@ class SilverInputDeps:
     bronze_store: BronzeArtifactStore
     config_store: ConfigStore
     marshal: FileMarshal
-    file_marshal_store: FileMarshalStore
+    file_marshal_store: PostgresFileMarshalStore
 
 
 @dataclass(frozen=True)
@@ -43,17 +43,17 @@ class SilverContractDeps:
     """Dependencies used for contracts and catalog metadata."""
 
     contract_store: ContractSnapshotStore
-    contract_metadata_store: ContractMetadataStore
-    dataset_catalog_store: DatasetCatalogStore
+    contract_metadata_store: PostgresContractMetadataStore
+    dataset_catalog_store: PostgresDatasetCatalogStore
 
 
 @dataclass(frozen=True)
 class SilverOutputDeps:
     """Dependencies used to persist Silver materializations."""
 
-    silver_store: SilverProcessArtifactStore
-    silver_build_store: SilverBuildStore
-    publication_decision_uow: SilverPublicationDecisionUnitOfWork
+    silver_store: SilverArtifactStore
+    silver_build_store: PostgresSilverBuildStore
+    publication_decision_uow: PostgresSilverPublicationDecisionUnitOfWork
 
 
 @dataclass(frozen=True)
@@ -62,7 +62,7 @@ class SilverEvidenceDeps:
 
     execution_log_store: ExecutionLogStore
     quality_store: QualityCheckStore
-    transformation_impact_store: TransformationImpactStore
+    transformation_impact_store: PostgresTransformationImpactStore
     transformation_impact_ids: TransformationImpactIdGenerator
 
 
@@ -71,7 +71,7 @@ class SilverEngineDeps:
     """Dependencies used by the Silver engine gate."""
 
     runtime: SilverEngineRuntime
-    release_store: SilverEngineReleaseStore
+    release_store: PostgresSilverEngineReleaseStore
 
 
 @dataclass(frozen=True)

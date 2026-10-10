@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from metrka_core.metadata.file_marshal_store import FileMarshalStore
 from metrka_core.metadata.postgres import PostgresSession, to_jsonb
+from metrka_core.metadata.postgres_file_marshal import PostgresFileMarshalStore
 from metrka_core.metadata.source_schema import ParsedSourceSchema, SourceSchemaField
 from metrka_core.metadata.source_schema_ids import SourceSchemaSnapshotIdGenerator
 
@@ -24,7 +24,7 @@ class PostgresSourceSchemaStore:
     def __init__(
         self,
         session: PostgresSession,
-        file_marshal_store: FileMarshalStore,
+        file_marshal_store: PostgresFileMarshalStore,
         source_schema_ids: SourceSchemaSnapshotIdGenerator,
     ) -> None:
         self._session = session

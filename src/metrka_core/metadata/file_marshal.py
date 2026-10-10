@@ -20,7 +20,7 @@ from metrka_core.metadata.file_marshal_models import (
     MarshalEntry,
     MarshalEvent,
 )
-from metrka_core.metadata.file_marshal_store import FileMarshalStore
+from metrka_core.metadata.postgres_file_marshal import PostgresFileMarshalStore
 from metrka_core.pipeline.runtime_services import Clock
 
 _STORED_FILE_RE = re.compile(
@@ -48,7 +48,7 @@ def get_original_filename(stored_filename: str | None) -> str | None:
 class FileMarshal:
     """Coordinates file registration, promotion, supersession and audit logging."""
 
-    def __init__(self, store: FileMarshalStore, *, clock: Clock) -> None:
+    def __init__(self, store: PostgresFileMarshalStore, *, clock: Clock) -> None:
         if store is None:
             raise ValueError("store is missing. Cannot initialize FileMarshal without persistence.")
 

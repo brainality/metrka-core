@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from metrka_core.catalog.dataset_catalog import DatasetCatalogStore
 from metrka_core.catalog.postgres_dataset_catalog import PostgresDatasetCatalogStore
 from metrka_core.catalog.postgres_publication_asset_store import (
     PostgresDatasetPublicationAssetStore,
@@ -13,10 +12,7 @@ from metrka_core.catalog.postgres_publication_store import PostgresDatasetPublic
 from metrka_core.catalog.publication_asset_store import DatasetPublicationAssetStore
 from metrka_core.catalog.publication_store import DatasetPublicationStore
 from metrka_core.lineage.transformation.postgres_store import PostgresTransformationImpactStore
-from metrka_core.lineage.transformation.store import TransformationImpactStore
-from metrka_core.metadata.contract_metadata import ContractMetadataStore
 from metrka_core.metadata.file_marshal import FileMarshal
-from metrka_core.metadata.file_marshal_store import FileMarshalStore
 from metrka_core.metadata.postgres import PostgresSession
 from metrka_core.metadata.postgres_contract_metadata import PostgresContractMetadataStore
 from metrka_core.metadata.postgres_file_marshal import PostgresFileMarshalStore
@@ -31,7 +27,6 @@ from metrka_core.observability.stores import ExecutionLogStore, PipelineRunStore
 from metrka_core.pipeline.acquisition.postgres_source_capture_store import (
     PostgresSourceCaptureStore,
 )
-from metrka_core.pipeline.acquisition.source_capture_store import SourceCaptureStore
 from metrka_core.pipeline.runtime_services import Clock
 from metrka_core.quality.postgres_store import PostgresQualityCheckStore
 from metrka_core.quality.store import QualityCheckStore
@@ -41,18 +36,18 @@ from metrka_core.quality.store import QualityCheckStore
 class MetadataComposition:
     """Metadata collaborators shared by one pipeline execution."""
 
-    source_captures: SourceCaptureStore
-    file_marshal_store: FileMarshalStore
+    source_captures: PostgresSourceCaptureStore
+    file_marshal_store: PostgresFileMarshalStore
     marshal: FileMarshal
     source_schemas: SourceSchemaStore
     pipeline_runs: PipelineRunStore
     execution_logs: ExecutionLogStore
     quality_checks: QualityCheckStore
-    contract_metadata: ContractMetadataStore
-    dataset_catalog: DatasetCatalogStore
+    contract_metadata: PostgresContractMetadataStore
+    dataset_catalog: PostgresDatasetCatalogStore
     dataset_publications: DatasetPublicationStore
     dataset_publication_assets: DatasetPublicationAssetStore
-    transformation_impacts: TransformationImpactStore
+    transformation_impacts: PostgresTransformationImpactStore
 
 
 def build_metadata_composition(

@@ -14,13 +14,15 @@ from metrka_core.observability.execution_step_scope import run_step
 from metrka_core.observability.stores import ExecutionLogStore
 from metrka_core.pipeline.provenance import CodeProvenance
 from metrka_core.pipeline.runtime_services import Clock
-from metrka_core.pipeline.silver.artifact_ports import SilverBuildFinalizationArtifactStore
+from metrka_core.pipeline.silver.artifact_ports import SilverArtifactStore
 from metrka_core.pipeline.silver.build_models import RebuildDecision
 from metrka_core.pipeline.silver.fingerprints import SilverDatasetFingerprint
+from metrka_core.pipeline.silver.postgres_publication_decision_unit_of_work import (
+    PostgresSilverPublicationDecisionUnitOfWork,
+)
 from metrka_core.pipeline.silver.publication_decision_unit_of_work import (
     SilverPublicationDecisionCommand,
     SilverPublicationDecisionResult,
-    SilverPublicationDecisionUnitOfWork,
 )
 from metrka_core.pipeline.silver.silver_artifacts import write_silver_manifest
 from metrka_core.pipeline.silver.version_period import VersionPeriod
@@ -32,8 +34,8 @@ class SilverBuildFinalizationDeps:
     """Dependencies required to finalize one Silver build."""
 
     clock: Clock
-    silver_store: SilverBuildFinalizationArtifactStore
-    decision_uow: SilverPublicationDecisionUnitOfWork
+    silver_store: SilverArtifactStore
+    decision_uow: PostgresSilverPublicationDecisionUnitOfWork
     execution_log_store: ExecutionLogStore
 
 

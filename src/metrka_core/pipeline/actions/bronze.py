@@ -17,8 +17,10 @@ from metrka_core.pipeline.action_runtime import ActionRuntime
 from metrka_core.pipeline.models import LandedAsset
 
 if TYPE_CHECKING:
-    from metrka_core.pipeline.acquisition.source_capture_store import SourceCaptureStore
-    from metrka_core.pipeline.bronze.processor import BronzeProcessor
+    from metrka_core.pipeline.acquisition.postgres_source_capture_store import (
+        PostgresSourceCaptureStore,
+    )
+    from metrka_core.pipeline.bronze.processor import ConfiguredBronzeProcessor
     from metrka_core.pipeline.models import PipelineRunState
     from metrka_core.pipeline.registry import PipelineRegistry
 
@@ -32,8 +34,8 @@ class BronzeIngestOptions:
 class BronzeIngestActionDeps:
     """Dependencies required by the Bronze action adapter."""
 
-    processor: BronzeProcessor
-    source_captures: SourceCaptureStore
+    processor: ConfiguredBronzeProcessor
+    source_captures: PostgresSourceCaptureStore
 
 
 def parse_bronze_ingest_options(raw: Mapping[str, Any]) -> BronzeIngestOptions:

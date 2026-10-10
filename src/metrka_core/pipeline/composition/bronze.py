@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from metrka_core.metadata.file_ids import DatasetFileIdGenerator
 from metrka_core.pipeline.bronze.asset_ingestion import BronzeIngestDeps
-from metrka_core.pipeline.bronze.processor import BronzeProcessor, ConfiguredBronzeProcessor
+from metrka_core.pipeline.bronze.processor import ConfiguredBronzeProcessor
 from metrka_core.pipeline.bronze.run_ids import BronzeRunIdGenerator
 from metrka_core.pipeline.composition.metadata import MetadataComposition
 from metrka_core.pipeline.composition.workspace import WorkspaceComposition
@@ -17,7 +17,7 @@ from metrka_core.pipeline.runtime_services import Clock
 class BronzeComposition:
     """Bronze services used by one pipeline execution."""
 
-    processor: BronzeProcessor
+    processor: ConfiguredBronzeProcessor
 
 
 def build_bronze_composition(

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Collection
 from datetime import datetime
-from pathlib import Path
 from typing import Protocol
 
+from metrka_core.pipeline.silver.artifact_ports import SilverArtifactStore
 from metrka_core.quality.asset_integrity_models import (
     AssetIntegrityBatch,
     AssetIntegrityFailureCode,
@@ -14,12 +14,6 @@ from metrka_core.quality.asset_integrity_models import (
     AssetIntegrityStatus,
 )
 from metrka_core.storage.checksums import format_sha256_checksum, parse_sha256_checksum, sha256_file
-
-
-class PublicationAssetPathResolver(Protocol):
-    """Resolve registered publication assets inside managed storage."""
-
-    def resolve_publication_asset_path(self, file_path: str) -> Path: ...
 
 
 class PublicationAssetExpectation(Protocol):
@@ -61,7 +55,7 @@ class PublicationAssetIntegrityError(RuntimeError):
 class Sha256PublicationAssetIntegrityVerifier:
     """Compare published files with recorded byte sizes and SHA-256 checksums."""
 
-    def __init__(self, paths: PublicationAssetPathResolver) -> None:
+    def __init__(self, paths: SilverArtifactStore) -> None:
         self._paths = paths
 
     def inspect(

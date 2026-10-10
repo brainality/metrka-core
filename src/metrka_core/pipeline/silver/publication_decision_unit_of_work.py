@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Any, Protocol
+from typing import Any
 
 from metrka_core.catalog.publication_candidate_models import DatasetPublicationCandidate
 from metrka_core.pipeline.silver.build_models import SilverBuild
@@ -93,11 +93,3 @@ class SilverPublicationDecisionResult:
 
             if self.verification is not None:
                 raise ValueError("Changed build cannot create verification")
-
-
-class SilverPublicationDecisionUnitOfWork(Protocol):
-    """Atomically finalize a build and persist its decision."""
-
-    def commit(
-        self, command: SilverPublicationDecisionCommand
-    ) -> SilverPublicationDecisionResult: ...

@@ -7,18 +7,18 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from metrka_core.lineage.transformation.ids import TransformationImpactIdGenerator
-from metrka_core.lineage.transformation.store import TransformationImpactStore
+from metrka_core.lineage.transformation.postgres_store import PostgresTransformationImpactStore
 from metrka_core.observability.stores import ExecutionLogStore
 from metrka_core.pipeline.action_runtime import ActionRuntime
 from metrka_core.pipeline.runtime_services import Clock
-from metrka_core.pipeline.silver.artifact_ports import SilverTableBuildArtifactStore
-from metrka_core.pipeline.silver.build_store import SilverBuildStore
+from metrka_core.pipeline.silver.artifact_ports import SilverArtifactStore
 from metrka_core.pipeline.silver.candidate_processing import PreparedSilverCandidate
 from metrka_core.pipeline.silver.fingerprints import (
     SilverDatasetFingerprint,
     SilverTableFingerprint,
     combine_silver_table_fingerprints,
 )
+from metrka_core.pipeline.silver.postgres_build_store import PostgresSilverBuildStore
 from metrka_core.pipeline.silver.process_models import (
     SilverDatasetFailure,
     SilverFailureStage,
@@ -37,11 +37,11 @@ class SilverCandidateTableBuildDeps:
     """Dependencies required to build the tables of one candidate."""
 
     clock: Clock
-    silver_store: SilverTableBuildArtifactStore
-    silver_build_store: SilverBuildStore
+    silver_store: SilverArtifactStore
+    silver_build_store: PostgresSilverBuildStore
     execution_log_store: ExecutionLogStore
     quality_store: QualityCheckStore
-    transformation_impact_store: TransformationImpactStore
+    transformation_impact_store: PostgresTransformationImpactStore
     transformation_impact_ids: TransformationImpactIdGenerator
     quality_config: QualityConfig
 
