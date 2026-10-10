@@ -11,6 +11,7 @@ from typing import Any, cast
 
 import yaml
 
+from metrka_core.datasets.dataset_identity import WorkspaceName
 from metrka_core.metadata.artifact import VALID_ARTIFACT_ROLES, ArtifactRole
 from metrka_core.pipeline.bronze.filename_metadata import (
     FilenameMetadataColumn,
@@ -39,7 +40,7 @@ class StreamConfig:
 
 @dataclass(frozen=True)
 class SourceConfig:
-    workspace_name: str
+    workspace_name: WorkspaceName
     streams: dict[str, StreamConfig]
     pipeline: dict[str, Any] = field(default_factory=dict)
 
@@ -298,7 +299,9 @@ def load_source_config(path: str | Path, *, expected_ws_name: str | None = None)
             extra=extra,
         )
 
-    return SourceConfig(workspace_name=workspace_name, streams=streams, pipeline=dict(raw_pipeline))
+    return SourceConfig(
+        workspace_name=WorkspaceName(workspace_name), streams=streams, pipeline=dict(raw_pipeline)
+    )
 
 
 def require_dataset_folder_streams(source_config: SourceConfig, *, dataset_name: str) -> None:

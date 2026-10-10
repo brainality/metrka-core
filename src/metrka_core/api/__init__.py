@@ -13,6 +13,8 @@ from metrka_core.catalog.publication_manifest_reader import (
 from metrka_core.datasets.dataset_identity import (
     DatasetIdentity,
     DatasetIdentityError,
+    RunName,
+    WorkspaceName,
     parse_dataset_id,
 )
 from metrka_core.datasets.path_resolver import WorkspaceLocationResolver
@@ -63,6 +65,7 @@ __all__ = [
     "PublicationManifestReadError",
     "PublicationManifestReader",
     "RuntimeEnvironment",
+    "RunName",
     "RuntimeServices",
     "SilverBuildIdGenerator",
     "WorkspaceExportContentPolicyError",
@@ -74,6 +77,7 @@ __all__ = [
     "WorkspaceInitializationResult",
     "WorkspaceLocation",
     "WorkspaceLocationResolver",
+    "WorkspaceName",
     "WorkspacePlacement",
     "WorkspaceValidationResult",
     "create_contract_snapshot_reader",

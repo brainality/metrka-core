@@ -37,6 +37,6 @@ class PipelineContext:
 
         return ActionRuntime(
             pipeline_run_id=self.runtime.pipeline_run_id,
-            dataset_name=self.workspace.workspace_name,
+            dataset_name=self.workspace.run_name,
             code_provenance=self.runtime.code_provenance,
         )

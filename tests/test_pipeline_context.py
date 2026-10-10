@@ -27,7 +27,7 @@ def test_pipeline_context_projects_action_runtime() -> None:
     runtime.code_provenance = code_provenance
 
     workspace = Mock()
-    workspace.workspace_name = "example_workspace"
+    workspace.run_name = "example_workspace"
 
     context = PipelineContext(
         runtime=runtime,

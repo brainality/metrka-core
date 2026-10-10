@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
+from metrka_core.datasets.dataset_identity import RunName, WorkspaceName
+
 _DATASET_FOLDER_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*")
 
 
@@ -21,7 +23,7 @@ class WorkspacePlacement(StrEnum):
 class WorkspaceLocation:
     """Bind one workspace definition to its persistent data storage."""
 
-    workspace_name: str
+    workspace_name: WorkspaceName
     definition_root: Path
     data_root: Path
     workspace_root: Path | None = None
@@ -96,7 +98,7 @@ class WorkspaceLocation:
 
         normalized_root = workspace_root.expanduser().resolve()
         return cls(
-            workspace_name=workspace_name,
+            workspace_name=WorkspaceName(workspace_name),
             workspace_root=normalized_root,
             definition_root=normalized_root,
             data_root=normalized_root / "data",
@@ -119,13 +121,13 @@ class WorkspaceLocation:
         )
 
     @property
-    def name(self) -> str:
+    def name(self) -> RunName:
         """The name used to run or validate this location: ``workspace`` or ``workspace.dataset``."""
 
         if self.dataset_name is None:
-            return self.workspace_name
+            return RunName(self.workspace_name)
 
-        return f"{self.workspace_name}.{self.dataset_name}"
+        return RunName(f"{self.workspace_name}.{self.dataset_name}")
 
     @classmethod
     def managed(
@@ -134,7 +136,9 @@ class WorkspaceLocation:
         """Create a layout whose definitions and data may live in separate stores."""
 
         return cls(
-            workspace_name=workspace_name, definition_root=definition_root, data_root=data_root
+            workspace_name=WorkspaceName(workspace_name),
+            definition_root=definition_root,
+            data_root=data_root,
         )
 
     @property

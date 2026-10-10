@@ -3,6 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import NewType
+
+WorkspaceName = NewType("WorkspaceName", str)
+"""The source workspace: ``workspace_name`` in main.yaml, the part of a dataset_id before the dot."""
+
+RunName = NewType("RunName", str)
+"""What a run or validation names: a workspace, or ``workspace.dataset`` for a dataset folder."""
 
 
 class DatasetIdentityError(ValueError):
@@ -18,7 +25,7 @@ class DatasetIdentity:
     """A canonical dataset identifier and its workspace and stream parts."""
 
     dataset_id: str
-    workspace_name: str
+    workspace_name: WorkspaceName
     stream_name: str
 
 
@@ -38,4 +45,6 @@ def parse_dataset_id(value: object) -> DatasetIdentity:
     if any(separator in value for separator in ("/", "\\")):
         raise DatasetIdentityError(reason="dataset_id contains a path separator")
 
-    return DatasetIdentity(dataset_id=value, workspace_name=workspace_name, stream_name=stream_name)
+    return DatasetIdentity(
+        dataset_id=value, workspace_name=WorkspaceName(workspace_name), stream_name=stream_name
+    )

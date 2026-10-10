@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from metrka_core.datasets.dataset_identity import RunName
 from metrka_core.observability import postgres_stores
 from metrka_core.observability.postgres_stores import PostgresPipelineRunStore
 from metrka_core.pipeline.provenance import CodeProvenance, GitCodeRevision
@@ -58,7 +59,7 @@ def test_start_pipeline_run_serializes_typed_provenance_at_postgres_boundary(
 
     store.start_pipeline_run(
         pipeline_run_id="pipeline_test",
-        workspace_name="adult-lead",
+        run_name=RunName("adult-lead"),
         config_name="main.yaml",
         code_provenance=code_provenance,
         started_at=started_at,

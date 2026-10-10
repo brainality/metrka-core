@@ -74,6 +74,8 @@ requires the corresponding compatibility decision for the package version.
 | `DatasetFileIdGenerator` | Runtime protocol | Generates dataset-file identifiers through `RuntimeServices`. |
 | `DatasetIdentity` | Dataset identity | Holds a canonical `dataset_id` with the workspace and stream names returned by `parse_dataset_id()`. |
 | `DatasetIdentityError` | Dataset identity exception | Rejects a `dataset_id` that breaks the identity rule and exposes the stable `reason`. |
+| `WorkspaceName` | Dataset identity | Types the source workspace name from `main.yaml`, the part of a `dataset_id` before the last dot, so type checkers reject a run name in its place. |
+| `RunName` | Dataset identity | Types the name a run or validation targets: a workspace, or `workspace.dataset` for a dataset folder; it is not interchangeable with `WorkspaceName`. |
 | `WorkspaceLocation` | Workspace model | Binds one logical workspace, or one dataset folder of a source workspace, to resolved definition and persistent data roots. |
 | `WorkspaceLocationResolver` | Workspace protocol | Resolves a configured workspace name, `source.dataset` for a dataset folder, or a published `dataset_id` (`resolve_dataset`) to a `WorkspaceLocation`. |
 | `WorkspacePlacement` | Configuration enum | Distinguishes portable workspaces from managed, independently placed definition and data roots. |

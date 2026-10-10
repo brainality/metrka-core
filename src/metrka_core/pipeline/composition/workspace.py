@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
+from metrka_core.datasets.dataset_identity import RunName
 from metrka_core.datasets.path_resolver import WorkspaceLocationResolver
 from metrka_core.datasets.source_config import (
     SourceConfig,
@@ -31,7 +32,7 @@ logger = logging.getLogger(__name__)
 class WorkspaceComposition:
     """Resolved local storage and configuration for one workspace."""
 
-    workspace_name: str
+    run_name: RunName
     layout: WorkspaceLayout
     landing_store: LandingStore
     bronze_store: BronzeArtifactStore
@@ -114,7 +115,7 @@ def build_workspace_composition(
     )
 
     return WorkspaceComposition(
-        workspace_name=workspace_name,
+        run_name=location.name,
         layout=layout,
         landing_store=landing_store,
         bronze_store=bronze_store,

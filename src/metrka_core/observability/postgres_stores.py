@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from metrka_core.datasets.dataset_identity import RunName
 from metrka_core.metadata.postgres import PostgresSession, to_jsonb
 from metrka_core.observability.execution_events import ExecutionEvent, StepFinishedEvent
 from metrka_core.observability.execution_step_meta import ExecutionStepMeta
@@ -20,7 +21,7 @@ class PostgresPipelineRunStore:
         self,
         *,
         pipeline_run_id: str,
-        workspace_name: str,
+        run_name: RunName,
         config_name: str,
         code_provenance: CodeProvenance,
         started_at: datetime,
@@ -43,7 +44,7 @@ class PostgresPipelineRunStore:
                 """,
                 (
                     pipeline_run_id,
-                    workspace_name,
+                    run_name,
                     config_name,
                     started_at,
                     to_jsonb(code_provenance.to_dict()),

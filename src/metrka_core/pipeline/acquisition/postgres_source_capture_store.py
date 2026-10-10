@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from metrka_core.datasets.dataset_identity import WorkspaceName
 from metrka_core.metadata.postgres import PostgresSession
 from metrka_core.pipeline.acquisition.models import SourceCapture, SourceCaptureAssetBinding
 
@@ -40,7 +41,7 @@ class PostgresSourceCaptureStore:
         self._session = session
 
     def register_capture(
-        self, *, capture: SourceCapture, pipeline_run_id: str, workspace_name: str
+        self, *, capture: SourceCapture, pipeline_run_id: str, workspace_name: WorkspaceName
     ) -> None:
         """
         Register one immutable capture.
