@@ -39,20 +39,3 @@ class SilverEngineReleaseStore(Protocol):
     def list_releases(
         self, *, limit: int = DEFAULT_ENGINE_RELEASE_LIST_LIMIT
     ) -> list[SilverEngineRelease]: ...
-
-
-class SilverEngineApprovalStore(Protocol):
-    """Administrative mutations for engine approval."""
-
-    def approve(
-        self, *, engine_release_id: str, approved_by: str, approved_at: datetime
-    ) -> SilverEngineRelease: ...
-
-    def reject(
-        self,
-        *,
-        engine_release_id: str,
-        rejected_by: str,
-        rejection_reason: str,
-        rejected_at: datetime,
-    ) -> SilverEngineRelease: ...
