@@ -33,6 +33,9 @@ modules remain implementation details unless they are listed in
 - Added public `parse_dataset_id()`, `DatasetIdentity`, and
   `DatasetIdentityError` so applications read the workspace and stream names
   of a `dataset_id` with the same rule the pipeline uses to build it.
+- Added the `WorkspaceName` and `RunName` types. The source workspace name and
+  the name of a run (`workspace.dataset` for a dataset folder) are now distinct
+  types, so mypy rejects passing one where the other is required.
 
 ### Changed
 

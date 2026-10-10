@@ -210,6 +210,6 @@ def test_runtime_composition_runs_inside_the_dataset_folder(tmp_path: Path) -> N
         source_capture_ids=services.source_capture_ids,
     )
 
-    assert composition.workspace_name == "fl.beds"
+    assert composition.run_name == "fl.beds"
     assert composition.layout.data_root == (folder / "data").resolve()
     assert composition.source_config.dataset_id("beds") == "fl.beds"

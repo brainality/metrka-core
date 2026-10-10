@@ -8,6 +8,7 @@ from typing import cast
 
 import pytest
 
+from metrka_core.datasets.dataset_identity import RunName
 from metrka_core.pipeline.composition.lifecycle import pipeline_run
 from metrka_core.pipeline.composition.runtime import RuntimeComposition
 from metrka_core.pipeline.config import RuntimeEnvironment
@@ -41,7 +42,7 @@ class RecordingPipelineRunStore:
         self,
         *,
         pipeline_run_id: str,
-        workspace_name: str,
+        run_name: str,
         config_name: str,
         code_provenance: CodeProvenance,
         started_at: datetime,
@@ -49,7 +50,7 @@ class RecordingPipelineRunStore:
         self.started.append(
             {
                 "pipeline_run_id": pipeline_run_id,
-                "workspace_name": workspace_name,
+                "run_name": run_name,
                 "config_name": config_name,
                 "code_provenance": code_provenance,
                 "started_at": started_at,
@@ -146,7 +147,7 @@ def _record_successful_run() -> RecordingPipelineRunStore:
         runtime=_runtime(),
         pipeline_runs=store,
         clock=SequenceClock(STARTED_AT, FINISHED_AT),
-        workspace_name="test-workspace",
+        run_name=RunName("test-workspace"),
         config_name="main.yaml",
     ) as yielded_context:
         assert yielded_context is context
@@ -164,7 +165,7 @@ def _record_failed_run() -> RecordingPipelineRunStore:
             runtime=_runtime(),
             pipeline_runs=store,
             clock=SequenceClock(STARTED_AT, FINISHED_AT),
-            workspace_name="test-workspace",
+            run_name=RunName("test-workspace"),
             config_name="main.yaml",
         ),
     ):
@@ -182,7 +183,7 @@ def test_successful_pipeline_lifecycle_is_deterministic() -> None:
     expected_started = [
         {
             "pipeline_run_id": "pipeline_test",
-            "workspace_name": "test-workspace",
+            "run_name": "test-workspace",
             "config_name": "main.yaml",
             "code_provenance": expected_provenance,
             "started_at": STARTED_AT,

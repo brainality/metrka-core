@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from metrka_core.datasets.dataset_identity import RunName
 from metrka_core.pipeline.provenance import CodeProvenance
 
 
@@ -17,5 +18,6 @@ class ActionRuntime:
     """
 
     pipeline_run_id: str
-    dataset_name: str
+    # The run name (`workspace` or `workspace.dataset`), not the source workspace name.
+    dataset_name: RunName
     code_provenance: CodeProvenance

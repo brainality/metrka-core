@@ -6,6 +6,7 @@ import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
 
+from metrka_core.datasets.dataset_identity import RunName
 from metrka_core.observability.stores import PipelineRunStore
 from metrka_core.pipeline.composition.runtime import RuntimeComposition
 from metrka_core.pipeline.context import PipelineContext
@@ -21,14 +22,14 @@ def pipeline_run(
     runtime: RuntimeComposition,
     pipeline_runs: PipelineRunStore,
     clock: Clock,
-    workspace_name: str,
+    run_name: RunName,
     config_name: str,
 ) -> Iterator[PipelineContext]:
     """Start, finish and report one pipeline execution."""
 
     pipeline_runs.start_pipeline_run(
         pipeline_run_id=runtime.pipeline_run_id,
-        workspace_name=workspace_name,
+        run_name=run_name,
         config_name=config_name,
         code_provenance=runtime.code_provenance,
         started_at=clock.now_utc(),

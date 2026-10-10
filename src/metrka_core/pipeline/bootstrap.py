@@ -143,7 +143,7 @@ def open_pipeline_context(
             runtime=runtime,
             pipeline_runs=metadata.pipeline_runs,
             clock=resolved_services.clock,
-            workspace_name=workspace_name,
+            run_name=workspace.run_name,
             config_name=config_name,
         ):
             yield context
