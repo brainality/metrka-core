@@ -1,4 +1,4 @@
-"""Architecture guards for consumer-owned Silver artifact ports."""
+"""The local adapter must provide every operation of the Silver artifact port."""
 
 from __future__ import annotations
 
@@ -30,16 +30,6 @@ def _protocol_methods(*, node: ast.ClassDef, protocol_classes: dict[str, ast.Cla
     return methods
 
 
-def _is_wide_port_reference(node: ast.AST) -> bool:
-    if isinstance(node, ast.ClassDef):
-        return node.name == "SilverArtifactStore"
-
-    if isinstance(node, ast.Name):
-        return node.id == "SilverArtifactStore"
-
-    return False
-
-
 def test_local_adapter_satisfies_every_silver_artifact_capability() -> None:
     repository_root = Path(__file__).resolve().parents[3]
     ports_path = (
@@ -59,16 +49,3 @@ def test_local_adapter_satisfies_every_silver_artifact_capability() -> None:
             protocol_name,
             sorted(required_methods - adapter_methods),
         )
-
-
-def test_obsolete_wide_silver_artifact_store_does_not_return() -> None:
-    source_root = Path(__file__).resolve().parents[3] / "src" / "metrka_core"
-    references: list[Path] = []
-
-    for source_path in source_root.rglob("*.py"):
-        tree = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
-
-        if any(_is_wide_port_reference(node) for node in ast.walk(tree)):
-            references.append(source_path.relative_to(source_root))
-
-    assert references == []

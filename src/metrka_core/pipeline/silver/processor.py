@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
 
 from metrka_core.pipeline.action_runtime import ActionRuntime
 from metrka_core.pipeline.silver.dependencies import SilverProcessDeps
@@ -13,24 +12,6 @@ from metrka_core.pipeline.silver.engine_policy import (
 )
 from metrka_core.pipeline.silver.process_models import SilverProcessResult
 from metrka_core.pipeline.silver.task_factory import process_configured_silver
-
-
-class SilverProcessor(Protocol):
-    """Execute the complete configured Silver use case."""
-
-    def evaluate_engine_gate(self) -> SilverEngineGateDecision:
-        """Check whether the configured Silver engine may run."""
-        ...
-
-    def process(
-        self,
-        *,
-        runtime: ActionRuntime,
-        target_dataset_id: str | None = None,
-        force_rebuild: bool = False,
-    ) -> SilverProcessResult:
-        """Process configured Bronze candidates into Silver."""
-        ...
 
 
 @dataclass(frozen=True)

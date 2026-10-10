@@ -8,9 +8,9 @@ from pathlib import Path
 
 from metrka_core.catalog.publication_models import DatasetPublication
 from metrka_core.pipeline.silver.artifact_models import SilverBuildArtifactQuery
-from metrka_core.pipeline.silver.artifact_ports import SilverBuildArtifactStore
+from metrka_core.pipeline.silver.artifact_ports import SilverArtifactStore
 from metrka_core.pipeline.silver.build_models import SilverBuildStatus
-from metrka_core.pipeline.silver.build_store import SilverBuildStore
+from metrka_core.pipeline.silver.postgres_build_store import PostgresSilverBuildStore
 from metrka_core.pipeline.silver.reconciliation.models import (
     OrphanCleanupResult,
     OrphanCleanupStatus,
@@ -23,8 +23,8 @@ from metrka_core.pipeline.silver.reconciliation.models import (
 class SilverBuildArtifactReconciler:
     """Report and optionally delete eligible unpublished build artifacts."""
 
-    silver_builds: SilverBuildStore
-    silver_store: SilverBuildArtifactStore
+    silver_builds: PostgresSilverBuildStore
+    silver_store: SilverArtifactStore
 
     def reconcile(
         self,

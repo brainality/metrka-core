@@ -17,7 +17,7 @@ from metrka_core.pipeline.action_runtime import ActionRuntime
 if TYPE_CHECKING:
     from metrka_core.pipeline.models import PipelineRunState
     from metrka_core.pipeline.registry import PipelineRegistry
-    from metrka_core.pipeline.silver.processor import SilverProcessor
+    from metrka_core.pipeline.silver.processor import ConfiguredSilverProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ class SilverProcessOptions:
 class SilverProcessActionDeps:
     """Dependencies required by the Silver action adapter."""
 
-    processor: SilverProcessor
+    processor: ConfiguredSilverProcessor
 
 
 def parse_silver_process_options(raw: Mapping[str, Any]) -> SilverProcessOptions:

@@ -27,7 +27,7 @@ from metrka_core.metadata.file_ids import DatasetFileIdGenerator
 from metrka_core.metadata.file_marshal import FileMarshal, get_original_filename
 from metrka_core.metadata.file_marshal_errors import DuplicateSourceFileError
 from metrka_core.metadata.file_marshal_models import BronzeArtifactDigest, MarshaledFile
-from metrka_core.metadata.file_marshal_store import FileMarshalStore
+from metrka_core.metadata.postgres_file_marshal import PostgresFileMarshalStore
 from metrka_core.observability.execution_step_meta import ExecutionStepMeta
 from metrka_core.observability.execution_step_scope import run_step
 from metrka_core.observability.stores import ExecutionLogStore
@@ -72,7 +72,7 @@ def ingest_to_bronze(
     source_url: str,
     execution_log_store: ExecutionLogStore,
     quality_store: QualityCheckStore,
-    file_marshal_store: FileMarshalStore,
+    file_marshal_store: PostgresFileMarshalStore,
     *,
     clock: Clock,
     dataset_file_ids: DatasetFileIdGenerator,

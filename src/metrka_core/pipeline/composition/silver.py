@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from metrka_core.catalog.postgres_publication_candidate_store import (
     PostgresDatasetPublicationCandidateStore,
 )
-from metrka_core.catalog.publication_candidate_store import DatasetPublicationCandidateStore
 from metrka_core.catalog.publication_ids import PublicationCandidateIdGenerator
 from metrka_core.lineage.transformation.ids import TransformationImpactIdGenerator
 from metrka_core.metadata.postgres import PostgresSession
@@ -17,7 +16,6 @@ from metrka_core.pipeline.composition.runtime import RuntimeComposition
 from metrka_core.pipeline.composition.workspace import WorkspaceComposition
 from metrka_core.pipeline.runtime_services import Clock
 from metrka_core.pipeline.silver.build_ids import SilverBuildIdGenerator
-from metrka_core.pipeline.silver.build_store import SilverBuildStore
 from metrka_core.pipeline.silver.dependencies import (
     SilverContractDeps,
     SilverEngineDeps,
@@ -27,16 +25,12 @@ from metrka_core.pipeline.silver.dependencies import (
     SilverProcessDeps,
 )
 from metrka_core.pipeline.silver.engine_models import SilverEngineRuntime
-from metrka_core.pipeline.silver.engine_store import SilverEngineReleaseStore
 from metrka_core.pipeline.silver.postgres_build_store import PostgresSilverBuildStore
 from metrka_core.pipeline.silver.postgres_engine_store import PostgresSilverEngineReleaseStore
 from metrka_core.pipeline.silver.postgres_publication_decision_unit_of_work import (
     PostgresSilverPublicationDecisionUnitOfWork,
 )
-from metrka_core.pipeline.silver.processor import ConfiguredSilverProcessor, SilverProcessor
-from metrka_core.pipeline.silver.publication_decision_unit_of_work import (
-    SilverPublicationDecisionUnitOfWork,
-)
+from metrka_core.pipeline.silver.processor import ConfiguredSilverProcessor
 from metrka_core.pipeline.silver.publication_indexes import (
     PublicationBackedSilverIndexService,
     SilverPublicationIndexService,
@@ -44,7 +38,6 @@ from metrka_core.pipeline.silver.publication_indexes import (
 from metrka_core.quality.postgres_publication_verification_store import (
     PostgresSilverPublicationVerificationStore,
 )
-from metrka_core.quality.publication_verification_store import SilverPublicationVerificationStore
 
 logger = logging.getLogger(__name__)
 
@@ -53,13 +46,13 @@ logger = logging.getLogger(__name__)
 class SilverComposition:
     """Silver stores and services used by one pipeline execution."""
 
-    processor: SilverProcessor
-    silver_builds: SilverBuildStore
-    silver_publication_verifications: SilverPublicationVerificationStore
-    dataset_publication_candidates: DatasetPublicationCandidateStore
+    processor: ConfiguredSilverProcessor
+    silver_builds: PostgresSilverBuildStore
+    silver_publication_verifications: PostgresSilverPublicationVerificationStore
+    dataset_publication_candidates: PostgresDatasetPublicationCandidateStore
     silver_engine: SilverEngineRuntime
-    silver_engine_releases: SilverEngineReleaseStore
-    silver_publication_decision_uow: SilverPublicationDecisionUnitOfWork
+    silver_engine_releases: PostgresSilverEngineReleaseStore
+    silver_publication_decision_uow: PostgresSilverPublicationDecisionUnitOfWork
     silver_publication_indexes: SilverPublicationIndexService
 
 

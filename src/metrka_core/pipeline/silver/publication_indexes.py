@@ -10,7 +10,7 @@ from metrka_core.catalog.publication_asset_store import DatasetPublicationAssetS
 from metrka_core.catalog.publication_models import DatasetPublication
 from metrka_core.catalog.publication_store import DatasetPublicationStore
 from metrka_core.pipeline.runtime_services import Clock
-from metrka_core.pipeline.silver.artifact_ports import SilverPublicationIndexArtifactStore
+from metrka_core.pipeline.silver.artifact_ports import SilverArtifactStore
 from metrka_core.pipeline.silver.silver_artifacts import (
     write_silver_history_views,
     write_silver_latest_views,
@@ -46,7 +46,7 @@ class PublicationBackedSilverIndexService:
         *,
         publications: DatasetPublicationStore,
         publication_assets: DatasetPublicationAssetStore,
-        silver_store: SilverPublicationIndexArtifactStore,
+        silver_store: SilverArtifactStore,
         clock: Clock,
     ) -> None:
         self._publications = publications

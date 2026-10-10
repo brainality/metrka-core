@@ -24,13 +24,13 @@ from metrka_core.lineage.transformation import (
     write_transformation_details,
 )
 from metrka_core.lineage.transformation.ids import TransformationImpactIdGenerator
-from metrka_core.lineage.transformation.store import TransformationImpactStore
+from metrka_core.lineage.transformation.postgres_store import PostgresTransformationImpactStore
 from metrka_core.observability.execution_step_meta import ExecutionStepMeta
 from metrka_core.observability.execution_step_scope import run_step
 from metrka_core.observability.stores import ExecutionLogStore
 from metrka_core.pipeline.config import load_table_cfg
 from metrka_core.pipeline.silver.artifact_models import SilverArtifactRef
-from metrka_core.pipeline.silver.artifact_ports import SilverTableBuildArtifactStore
+from metrka_core.pipeline.silver.artifact_ports import SilverArtifactStore
 from metrka_core.pipeline.silver.fingerprints import (
     SilverTableBuildResult,
     fingerprint_silver_table,
@@ -62,7 +62,7 @@ def _contract_execution_meta(contract_meta: dict[str, str]) -> ExecutionStepMeta
 
 def build_silver_table(
     dataset_name: str,
-    silver_store: SilverTableBuildArtifactStore,
+    silver_store: SilverArtifactStore,
     dataset_id: str,
     bronze_file_id: str,
     bronze_run_id: str,
@@ -78,7 +78,7 @@ def build_silver_table(
     table_key: str,
     execution_log_store: ExecutionLogStore,
     quality_store: QualityCheckStore,
-    transformation_impact_store: TransformationImpactStore,
+    transformation_impact_store: PostgresTransformationImpactStore,
     transformation_impact_ids: TransformationImpactIdGenerator,
     run_id: str,
     pipeline_run_id: str,

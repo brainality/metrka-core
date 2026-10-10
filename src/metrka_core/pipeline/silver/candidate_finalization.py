@@ -8,9 +8,9 @@ from dataclasses import dataclass
 from metrka_core.pipeline.action_runtime import ActionRuntime
 from metrka_core.pipeline.runtime_services import Clock
 from metrka_core.pipeline.silver.build_models import SilverBuildStatus
-from metrka_core.pipeline.silver.build_store import SilverBuildStore
 from metrka_core.pipeline.silver.candidate_processing import PreparedSilverCandidate
 from metrka_core.pipeline.silver.candidate_table_build import SilverCandidateTableBuildResult
+from metrka_core.pipeline.silver.postgres_build_store import PostgresSilverBuildStore
 from metrka_core.pipeline.silver.process_models import (
     SilverDatasetFailure,
     SilverFailureStage,
@@ -35,7 +35,7 @@ class SilverCandidateFinalizationDeps:
     """Dependencies required to finalize one built candidate."""
 
     clock: Clock
-    silver_build_store: SilverBuildStore
+    silver_build_store: PostgresSilverBuildStore
     finalization: SilverBuildFinalizationDeps
     engine_hash: str
 

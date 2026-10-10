@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from metrka_core.catalog.postgres_publication_candidate_store import (
+    PostgresDatasetPublicationCandidateStore,
+)
 from metrka_core.catalog.publication_asset_store import DatasetPublicationAssetStore
 from metrka_core.catalog.publication_candidate_models import (
     DatasetPublicationCandidate,
     DatasetPublicationCandidateStatus,
 )
-from metrka_core.catalog.publication_candidate_store import DatasetPublicationCandidateStore
 from metrka_core.catalog.publication_ids import PublicationIdGenerator
 from metrka_core.catalog.publication_manifest_reader import PublicationManifestReader
 from metrka_core.catalog.publication_models import DatasetPublicationRequest
@@ -19,19 +21,18 @@ from metrka_core.pipeline.silver.approved_publication_unit_of_work import (
     ApprovedPublicationResult,
 )
 from metrka_core.pipeline.silver.build_models import SilverBuild, SilverBuildStatus
-from metrka_core.pipeline.silver.build_store import SilverBuildStore
+from metrka_core.pipeline.silver.postgres_build_store import PostgresSilverBuildStore
 from metrka_core.pipeline.silver.publication_asset_integrity import (
     PublicationAssetIntegrityError,
     PublicationAssetIntegrityVerifier,
 )
 from metrka_core.pipeline.silver.publication_asset_mapping import publication_assets_from_manifest
 from metrka_core.pipeline.silver.publication_indexes import validate_publication_manifest
-from metrka_core.quality.asset_integrity_store import (
-    AssetIntegrityBatchStore,
-    PublicationIntegrityBatchLinkStore,
+from metrka_core.quality.postgres_asset_integrity_store import PostgresAssetIntegrityEvidenceStore
+from metrka_core.quality.postgres_publication_gate_evidence_store import (
+    PostgresPublicationGateEvidenceStore,
 )
 from metrka_core.quality.publication_gate_evidence_models import PublicationGateAttempt
-from metrka_core.quality.publication_gate_evidence_store import PublicationGateEvidenceStore
 from metrka_core.quality.publication_integrity_models import (
     PublicationIntegrityBatchLink,
     PublicationIntegrityTrigger,
@@ -45,14 +46,14 @@ class PostgresApprovedPublicationUnitOfWork:
         self,
         *,
         session: PostgresSession,
-        candidates: DatasetPublicationCandidateStore,
-        silver_builds: SilverBuildStore,
+        candidates: PostgresDatasetPublicationCandidateStore,
+        silver_builds: PostgresSilverBuildStore,
         publications: DatasetPublicationStore,
         publication_assets: DatasetPublicationAssetStore,
         publication_asset_integrity: PublicationAssetIntegrityVerifier,
-        asset_integrity_batches: AssetIntegrityBatchStore,
-        publication_integrity: PublicationIntegrityBatchLinkStore,
-        publication_gate_evidence: PublicationGateEvidenceStore,
+        asset_integrity_batches: PostgresAssetIntegrityEvidenceStore,
+        publication_integrity: PostgresAssetIntegrityEvidenceStore,
+        publication_gate_evidence: PostgresPublicationGateEvidenceStore,
         projection_states: DatasetPublicationProjectionStateStore,
         silver_store: PublicationManifestReader,
         publication_ids: PublicationIdGenerator,

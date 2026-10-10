@@ -16,7 +16,7 @@ from metrka_core.catalog.publication_projection_store import DatasetPublicationP
 from metrka_core.observability.execution_step_meta import ExecutionStepMeta
 from metrka_core.observability.execution_step_scope import run_step
 from metrka_core.observability.stores import ExecutionLogStore
-from metrka_core.pipeline.silver.artifact_ports import WorkspaceRelativePathResolver
+from metrka_core.pipeline.silver.artifact_ports import SilverArtifactStore
 from metrka_core.pipeline.silver.publication_indexes import (
     SilverPublicationIndexResult,
     SilverPublicationIndexService,
@@ -175,7 +175,7 @@ def refresh_silver_publication_projections(
     checked_at: datetime,
     publication_indexes: SilverPublicationIndexService,
     projection_states: DatasetPublicationProjectionStateStore,
-    silver_store: WorkspaceRelativePathResolver,
+    silver_store: SilverArtifactStore,
     execution_log_store: ExecutionLogStore,
 ) -> SilverProjectionRefreshResult:
     """

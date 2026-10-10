@@ -7,8 +7,8 @@ from enum import StrEnum
 from pathlib import Path
 from uuid import UUID
 
-from metrka_core.pipeline.silver.artifact_ports import SilverBuildArtifactInventory
-from metrka_core.pipeline.silver.build_store import SilverBuildStore
+from metrka_core.pipeline.silver.artifact_ports import SilverArtifactStore
+from metrka_core.pipeline.silver.postgres_build_store import PostgresSilverBuildStore
 
 
 class UnknownArtifactCause(StrEnum):
@@ -39,7 +39,7 @@ class SilverWorkspaceOrphanAuditor:
     """Report unknown Silver artifact directories once per workspace."""
 
     def __init__(
-        self, *, silver_builds: SilverBuildStore, silver_store: SilverBuildArtifactInventory
+        self, *, silver_builds: PostgresSilverBuildStore, silver_store: SilverArtifactStore
     ) -> None:
         self._silver_builds = silver_builds
         self._silver_store = silver_store

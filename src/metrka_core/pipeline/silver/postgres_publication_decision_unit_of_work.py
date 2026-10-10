@@ -2,20 +2,24 @@
 
 from __future__ import annotations
 
+from metrka_core.catalog.postgres_publication_candidate_store import (
+    PostgresDatasetPublicationCandidateStore,
+)
 from metrka_core.catalog.publication_candidate_models import DatasetPublicationCandidateRequest
-from metrka_core.catalog.publication_candidate_store import DatasetPublicationCandidateStore
 from metrka_core.catalog.publication_ids import PublicationCandidateIdGenerator
 from metrka_core.catalog.publication_store import DatasetPublicationStore
 from metrka_core.metadata.file_marshal import FileMarshal
 from metrka_core.metadata.postgres import PostgresSession
-from metrka_core.pipeline.silver.build_store import SilverBuildStore
+from metrka_core.pipeline.silver.postgres_build_store import PostgresSilverBuildStore
 from metrka_core.pipeline.silver.publication_decision import decide_silver_publication
 from metrka_core.pipeline.silver.publication_decision_unit_of_work import (
     SilverPublicationDecisionCommand,
     SilverPublicationDecisionResult,
 )
+from metrka_core.quality.postgres_publication_verification_store import (
+    PostgresSilverPublicationVerificationStore,
+)
 from metrka_core.quality.publication_verification_models import SilverPublicationVerificationRequest
-from metrka_core.quality.publication_verification_store import SilverPublicationVerificationStore
 
 
 class PostgresSilverPublicationDecisionUnitOfWork:
@@ -25,11 +29,11 @@ class PostgresSilverPublicationDecisionUnitOfWork:
         self,
         *,
         session: PostgresSession,
-        silver_builds: SilverBuildStore,
+        silver_builds: PostgresSilverBuildStore,
         marshal: FileMarshal,
         publications: DatasetPublicationStore,
-        verifications: SilverPublicationVerificationStore,
-        candidates: DatasetPublicationCandidateStore,
+        verifications: PostgresSilverPublicationVerificationStore,
+        candidates: PostgresDatasetPublicationCandidateStore,
         candidate_ids: PublicationCandidateIdGenerator,
     ) -> None:
         self._session = session

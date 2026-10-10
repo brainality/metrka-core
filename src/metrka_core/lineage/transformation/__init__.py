@@ -15,12 +15,10 @@ from metrka_core.lineage.transformation.models import (
     TransformationImpact,
     TransformationObservation,
 )
-from metrka_core.lineage.transformation.store import TransformationImpactStore
 
 __all__ = [
     "TRANSFORMATION_DETAILS_SCHEMA_ID",
     "TRANSFORMATION_DETAILS_VALUE_ENCODING",
-    "TransformationImpactStore",
     "TransformationImpact",
     "TransformationObservation",
     "TransformationDetailRow",

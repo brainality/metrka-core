@@ -9,7 +9,7 @@ from metrka_core.datasets.source_config import SourceConfig, StreamConfig
 from metrka_core.metadata.bronze_artifact_integrity import capture_bronze_artifacts
 from metrka_core.metadata.file_ids import DatasetFileIdGenerator
 from metrka_core.metadata.file_marshal import FileMarshal
-from metrka_core.metadata.file_marshal_store import FileMarshalStore
+from metrka_core.metadata.postgres_file_marshal import PostgresFileMarshalStore
 from metrka_core.observability.execution_step_meta import ExecutionStepMeta
 from metrka_core.observability.execution_step_scope import run_step
 from metrka_core.observability.stores import ExecutionLogStore
@@ -55,7 +55,7 @@ class BronzeIngestDeps:
     marshal: FileMarshal
     execution_logs: ExecutionLogStore
     quality_checks: QualityCheckStore
-    file_marshal_store: FileMarshalStore
+    file_marshal_store: PostgresFileMarshalStore
 
 
 def _group_landed_assets_by_stream(assets: list[LandedAsset]) -> dict[str, tuple[LandedAsset, ...]]:

@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from metrka_core.catalog.dataset_catalog import DatasetCatalogStore
-from metrka_core.metadata.contract_metadata import ContractMetadataStore
+from metrka_core.catalog.postgres_dataset_catalog import PostgresDatasetCatalogStore
+from metrka_core.metadata.postgres_contract_metadata import PostgresContractMetadataStore
 from metrka_core.observability.execution_step_meta import ExecutionStepMeta
 from metrka_core.observability.execution_step_scope import run_step
 from metrka_core.observability.stores import ExecutionLogStore
@@ -40,8 +40,8 @@ class SilverDatasetPreparationDeps:
     """Dependencies required for one dataset-level preparation."""
 
     contract_store: ContractSnapshotStore
-    contract_metadata_store: ContractMetadataStore
-    dataset_catalog_store: DatasetCatalogStore
+    contract_metadata_store: PostgresContractMetadataStore
+    dataset_catalog_store: PostgresDatasetCatalogStore
     execution_log_store: ExecutionLogStore
 
 

@@ -1,9 +1,9 @@
-"""Keep store ports limited to capabilities requested by production consumers."""
+"""Keep stores limited to capabilities requested by production consumers."""
 
 from metrka_core.catalog.publication_store import DatasetPublicationStore
-from metrka_core.lineage.transformation.store import TransformationImpactStore
-from metrka_core.metadata.file_marshal_store import FileMarshalStore
-from metrka_core.pipeline.silver.build_store import SilverBuildStore
+from metrka_core.lineage.transformation.postgres_store import PostgresTransformationImpactStore
+from metrka_core.metadata.postgres_file_marshal import PostgresFileMarshalStore
+from metrka_core.pipeline.silver.postgres_build_store import PostgresSilverBuildStore
 from metrka_core.quality.store import QualityCheckStore
 
 
@@ -14,7 +14,7 @@ def _declared_methods(port: type[object]) -> frozenset[str]:
 
 
 def test_file_marshal_store_exposes_only_consumed_capabilities() -> None:
-    assert _declared_methods(FileMarshalStore) == {
+    assert _declared_methods(PostgresFileMarshalStore) == {
         "transaction",
         "upsert_marshaled_file",
         "insert_marshal_event",
@@ -28,7 +28,10 @@ def test_file_marshal_store_exposes_only_consumed_capabilities() -> None:
 
 
 def test_transformation_impact_store_exposes_only_consumed_capabilities() -> None:
-    assert _declared_methods(TransformationImpactStore) == {"insert_many", "list_for_builds"}
+    assert _declared_methods(PostgresTransformationImpactStore) == {
+        "insert_many",
+        "list_for_builds",
+    }
 
 
 def test_quality_check_store_exposes_only_consumed_capabilities() -> None:
@@ -39,7 +42,7 @@ def test_quality_check_store_exposes_only_consumed_capabilities() -> None:
 
 
 def test_silver_build_store_exposes_only_consumed_capabilities() -> None:
-    assert _declared_methods(SilverBuildStore) == {
+    assert _declared_methods(PostgresSilverBuildStore) == {
         "insert_started",
         "get_by_id",
         "find_by_ids",

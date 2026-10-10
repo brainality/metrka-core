@@ -21,14 +21,10 @@ import yaml
 
 from metrka_core.catalog.highlights import calculate_catalog_highlights
 from metrka_core.catalog.temporal_coverage import TemporalCoverageSpec, calculate_temporal_coverage
-from metrka_core.metadata.contract_metadata import ContractMetadataStore
+from metrka_core.metadata.postgres_contract_metadata import PostgresContractMetadataStore
 from metrka_core.pipeline.provenance import CodeProvenance
 from metrka_core.pipeline.silver.artifact_models import SilverBuildRef
-from metrka_core.pipeline.silver.artifact_ports import (
-    SilverHistoryViewWriter,
-    SilverLatestViewWriter,
-    SilverManifestArtifactWriter,
-)
+from metrka_core.pipeline.silver.artifact_ports import SilverArtifactStore
 from metrka_core.pipeline.silver.fingerprints import SilverDatasetFingerprint
 from metrka_core.pipeline.silver.version_period import VersionPeriod
 from metrka_core.storage.checksums import sha256_checksum, sha256_file
@@ -96,7 +92,7 @@ def snapshot_contract(
 def register_contract_snapshot(
     *,
     contract_store: ContractSnapshotStore,
-    contract_metadata_store: ContractMetadataStore,
+    contract_metadata_store: PostgresContractMetadataStore,
     dataset_name: str,
     dataset_id: str,
     contract_path: Path,
@@ -122,7 +118,7 @@ def register_contract_snapshot(
 
 def write_silver_manifest(
     *,
-    silver_store: SilverManifestArtifactWriter,
+    silver_store: SilverArtifactStore,
     dataset_id: str,
     silver_build_id: str,
     engine_release_id: str,
@@ -230,7 +226,7 @@ def write_silver_manifest(
 
 
 def write_silver_latest_views(
-    *, silver_store: SilverLatestViewWriter, current_manifest: dict[str, Any], publication_id: str
+    *, silver_store: SilverArtifactStore, current_manifest: dict[str, Any], publication_id: str
 ) -> list[Path]:
     """Generate latest-file views from the current publication."""
 
@@ -263,7 +259,7 @@ def write_silver_latest_views(
 
 
 def write_silver_history_views(
-    *, silver_store: SilverHistoryViewWriter, dataset_id: str, history_entries: list[dict[str, Any]]
+    *, silver_store: SilverArtifactStore, dataset_id: str, history_entries: list[dict[str, Any]]
 ) -> list[Path]:
     """Regenerate history views from all active publications."""
 
@@ -324,7 +320,7 @@ def _require_manifest_tables(manifest: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _build_file_manifest_entry(
-    *, silver_store: SilverManifestArtifactWriter, dataset_id: str, file_path: Path
+    *, silver_store: SilverArtifactStore, dataset_id: str, file_path: Path
 ) -> dict[str, Any]:
     relative_path = silver_store.table_relative_path(file_path)
     if len(relative_path.parts) != 4:

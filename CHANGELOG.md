@@ -59,6 +59,12 @@ modules remain implementation details unless they are listed in
   non-numeric columns.
 - Removed `QualityRegistry`, the generic gate runner, and the mapping-based
   check input in favor of one function per gate.
+- Replaced the twelve narrow Silver artifact ports with one `SilverArtifactStore`
+  port. Removed internal protocols that had a single implementation and no
+  planned alternative: the PostgreSQL metadata stores, the asset-integrity
+  evidence stores, and the acquisition, Bronze, and Silver processors. Code
+  now names those concrete classes directly. File-storage ports stay, because
+  remote storage is planned.
 - Identify source-capture asset bindings by capture, stream, and relative path,
   allowing multiple physical source files to produce one Bronze dataset file.
 - `resolve_dataset()` raises `DatasetIdentityError`, a `ValueError`, for a

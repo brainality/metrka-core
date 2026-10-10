@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from metrka_core.observability.execution_step_meta import ExecutionStepMeta
 from metrka_core.observability.execution_step_scope import run_step
 from metrka_core.observability.stores import ExecutionLogStore
-from metrka_core.pipeline.silver.artifact_ports import SilverStagingCleanupStore
+from metrka_core.pipeline.silver.artifact_ports import SilverArtifactStore
 from metrka_core.pipeline.silver.publication_decision_unit_of_work import (
     SilverPublicationDecisionResult,
 )
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class SilverStagingCleanupDeps:
     """Dependencies required to remove one finalized staging directory."""
 
-    silver_store: SilverStagingCleanupStore
+    silver_store: SilverArtifactStore
     execution_log_store: ExecutionLogStore
 
 

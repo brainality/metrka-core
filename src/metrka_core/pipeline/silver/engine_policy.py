@@ -7,7 +7,7 @@ from enum import StrEnum
 
 from metrka_core.pipeline.config import RuntimeConfigError, RuntimeEnvironment
 from metrka_core.pipeline.silver.engine_models import SilverEnginePolicy, SilverEngineRuntime
-from metrka_core.pipeline.silver.engine_store import SilverEngineReleaseStore
+from metrka_core.pipeline.silver.postgres_engine_store import PostgresSilverEngineReleaseStore
 
 
 class SilverEngineGateStatus(StrEnum):
@@ -65,7 +65,7 @@ def resolve_silver_engine_policy(
 
 
 def evaluate_silver_engine_gate(
-    *, runtime: SilverEngineRuntime, release_store: SilverEngineReleaseStore
+    *, runtime: SilverEngineRuntime, release_store: PostgresSilverEngineReleaseStore
 ) -> SilverEngineGateDecision:
     """Decide whether the installed engine may run Silver."""
 

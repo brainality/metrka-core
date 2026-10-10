@@ -14,7 +14,7 @@ from metrka_core.pipeline.silver.reconciliation.models import (
     AssetVerificationFailure,
     PublicationAssetReconciliation,
 )
-from metrka_core.quality.asset_integrity_store import PublicationIntegrityCheckStore
+from metrka_core.quality.postgres_asset_integrity_store import PostgresAssetIntegrityEvidenceStore
 from metrka_core.quality.publication_integrity_models import (
     PublicationIntegrityCheck,
     PublicationIntegrityTrigger,
@@ -27,7 +27,7 @@ class PublicationAssetReconciler:
 
     publication_assets: DatasetPublicationAssetStore
     integrity: PublicationAssetIntegrityVerifier
-    integrity_checks: PublicationIntegrityCheckStore
+    integrity_checks: PostgresAssetIntegrityEvidenceStore
 
     def reconcile(
         self, *, publications: tuple[DatasetPublication, ...], checked_at: datetime
